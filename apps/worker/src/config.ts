@@ -33,7 +33,7 @@ export function loadConfig(): WorkerConfig {
     sourceChainKey: integer('SOURCE_CHAIN_KEY', 1),
     sourceRegistryAddress: required('SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS'),
     proofKeyAscAddress: required('PROOFKEY_ASC_ADDRESS'),
-    workerPrivateKey: required('WORKER_PRIVATE_KEY'),
+    workerPrivateKey: privateKey('WORKER_PRIVATE_KEY'),
     sourceConfirmations: integer('SOURCE_CONFIRMATIONS', 1),
     sourceTimeoutMs: integer('SOURCE_CONFIRMATION_TIMEOUT_MS', 180_000),
     attestationPollMs: integer('ATTESTATION_POLL_INTERVAL_MS', 15_000),
@@ -53,6 +53,14 @@ export function loadConfig(): WorkerConfig {
 function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable ${name}.`);
+  return value;
+}
+
+function privateKey(name: string): string {
+  const configured = required(name);
+  const value = configured.startsWith('0x') ? configured : `0x${configured}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(value))
+    throw new Error(`${name} must be a 32-byte hexadecimal value.`);
   return value;
 }
 

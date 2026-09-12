@@ -18,6 +18,7 @@ import {
 import { NetworkRelayAdapter } from './adapter.js';
 import { writePublicEvidence } from './evidence.js';
 import type { WorkerConfig } from './config.js';
+import { withRetry } from './retry.js';
 
 const SEPOLIA_CHAIN_ID = 11_155_111n;
 const CREDITCOIN_CHAIN_ID = 102_031n;
@@ -151,6 +152,7 @@ async function main(): Promise<void> {
     blockNumber: number;
     explorerUrl: string;
   }> = [];
+  report('configuration', 'Configuring the canonical machine on both chains.');
   await configureMachine(
     machineRegistry,
     machineId,
@@ -222,6 +224,10 @@ async function main(): Promise<void> {
     );
     const paymentReceipt = await requiredReceipt(paymentTransaction);
     sourceTransactionHash = paymentReceipt.hash;
+    report('payment_confirmed', 'Sepolia usage payment confirmed.', {
+      transactionHash: sourceTransactionHash,
+      blockNumber: paymentReceipt.blockNumber,
+    });
   }
 
   const relayConfig: WorkerConfig = {
@@ -238,8 +244,8 @@ async function main(): Promise<void> {
     sourceTimeoutMs: positiveNumber('SOURCE_CONFIRMATION_TIMEOUT_MS', 180_000),
     attestationPollMs: positiveNumber('ATTESTATION_POLL_INTERVAL_MS', 15_000),
     attestationTimeoutMs: positiveNumber('ATTESTATION_TIMEOUT_MS', 1_200_000),
-    retryAttempts: 1,
-    retryBaseDelayMs: 1,
+    retryAttempts: positiveNumber('RELAY_RETRY_ATTEMPTS', 3),
+    retryBaseDelayMs: positiveNumber('RELAY_RETRY_BASE_DELAY_MS', 2_000),
     stateFile: '',
     serverPort: 8787,
     serverHost: '127.0.0.1',
@@ -250,10 +256,31 @@ async function main(): Promise<void> {
   const source = await adapter.confirmSourceTransaction(sourceTransactionHash);
   if (source.payment.machineId.toLowerCase() !== machineId.toLowerCase())
     throw new Error('Recorded payment is for a different demo machine.');
-  await adapter.waitUntilAttested(source.blockNumber);
+  report(
+    'attestation_wait',
+    'Waiting for Attestcoin to cover the Sepolia block.',
+    {
+      transactionHash: sourceTransactionHash,
+      blockNumber: source.blockNumber,
+      orderId: source.payment.orderId,
+    },
+  );
+  await withRetry(() => adapter.waitUntilAttested(source.blockNumber), {
+    maxAttempts: relayConfig.retryAttempts,
+    baseDelayMs: relayConfig.retryBaseDelayMs,
+    onAttempt: (attempt) =>
+      report('attestation_attempt', 'Checking Attestcoin coverage.', {
+        attempt,
+      }),
+  });
+  report('proof_generation', 'Block attested; requesting proof material.');
   const proof = await adapter.generateProof(sourceTransactionHash);
   if (proof.chainKey !== 1 || proof.blockHeight !== source.blockNumber)
     throw new Error('Attestcoin proof does not match the source receipt.');
+  report(
+    'creditcoin_execution',
+    'Proof generated; submitting ProofKeyASC.execute.',
+  );
   const creditcoinTransactionHash = await adapter.submitProof(proof);
   const creditcoinReceipt = await creditcoinProvider.getTransactionReceipt(
     creditcoinTransactionHash,
@@ -347,6 +374,11 @@ async function main(): Promise<void> {
     resolve(root, 'packages/contracts/deployments/live-mvp.json'),
     evidence,
   );
+  report('completed', 'Live cross-chain access authorization verified.', {
+    sourceTransactionHash,
+    creditcoinTransactionHash,
+    orderId: source.payment.orderId,
+  });
   process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
 }
 
@@ -472,6 +504,10 @@ async function recordTransaction(
     blockNumber: receipt.blockNumber,
     explorerUrl: `${explorer}/tx/${receipt.hash}`,
   });
+  report('configuration_transaction', purpose, {
+    transactionHash: receipt.hash,
+    blockNumber: receipt.blockNumber,
+  });
 }
 
 async function requiredReceipt(transaction: {
@@ -519,9 +555,10 @@ function required(name: string): string {
 }
 
 function privateKey(name: string): string {
-  const value = required(name);
+  const configured = required(name);
+  const value = configured.startsWith('0x') ? configured : `0x${configured}`;
   if (!/^0x[0-9a-fA-F]{64}$/.test(value))
-    throw new Error(`${name} must be a 32-byte 0x-prefixed private key.`);
+    throw new Error(`${name} must be a 32-byte hexadecimal private key.`);
   return value;
 }
 
@@ -542,6 +579,16 @@ function positiveBigInt(name: string, fallback: bigint): bigint {
 
 function trimSlash(value: string): string {
   return value.replace(/\/$/, '');
+}
+
+function report(
+  phase: string,
+  message: string,
+  details: Record<string, string | number> = {},
+): void {
+  process.stdout.write(
+    `${JSON.stringify({ phase, message, timestamp: new Date().toISOString(), ...details })}\n`,
+  );
 }
 
 main().catch((error: unknown) => {

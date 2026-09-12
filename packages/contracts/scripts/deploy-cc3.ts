@@ -30,14 +30,17 @@ async function main(): Promise<void> {
   }
 
   const rpcUrl = requiredEnvironmentVariable('CREDITCOIN_TESTNET_RPC_URL');
-  const privateKey = requiredEnvironmentVariable('DEPLOYER_PRIVATE_KEY');
+  const configuredPrivateKey = requiredEnvironmentVariable(
+    'DEPLOYER_PRIVATE_KEY',
+  );
+  const privateKey = configuredPrivateKey.startsWith('0x')
+    ? configuredPrivateKey
+    : `0x${configuredPrivateKey}`;
   const sourcePaymentRegistry = getAddress(
     requiredEnvironmentVariable('SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS'),
   );
   if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY must be a 32-byte 0x-prefixed hex value',
-    );
+    throw new Error('DEPLOYER_PRIVATE_KEY must be a 32-byte hexadecimal value');
   }
 
   const provider = new JsonRpcProvider(rpcUrl);

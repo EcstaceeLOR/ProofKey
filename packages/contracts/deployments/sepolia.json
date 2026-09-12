@@ -1,0 +1,20 @@
+{
+  "network": "ethereum-sepolia",
+  "chainId": 11155111,
+  "deployer": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+  "paymentToken": {
+    "address": "0x43f2a86F5652957Aa5615413D406e037162a8247",
+    "deployedByScript": true,
+    "transactionHash": "0x12af2e6fcaf760812f073f5f0724b68690943ece9b9699c672e64c079b31f43f",
+    "blockHash": "0x6abbb07ef5ac96e358f5dceb5883b33156d329c3cb1315061c85322815dcf5c5",
+    "blockNumber": 11691301
+  },
+  "usagePaymentRegistry": {
+    "address": "0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA",
+    "transactionHash": "0xe42bff45341f23a228bd400864732e96d78ec64168ce48f3dc0227f81f858fbf",
+    "blockHash": "0x5178241a29e7dc5e8fac957fd632d03f82f16ec52b9e9022d13cd1fd72a42f16",
+    "blockNumber": 11691302,
+    "explorerUrl": "https://sepolia.etherscan.io/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA"
+  },
+  "deployedAt": "2026-09-12T20:41:16.218Z"
+}
