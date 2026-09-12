@@ -1,0 +1,132 @@
+{
+  "provenance": {
+    "kind": "recorded-live",
+    "fresh": false,
+    "note": "Historical proof captured from a successful live testnet run; replaying this file does not generate a fresh attestation."
+  },
+  "recordedAt": "2026-09-12T20:57:50.109Z",
+  "demo": {
+    "machineLabel": "proofkey.excavator.001",
+    "machineId": "0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc",
+    "metadataUri": "ipfs://proofkey/excavator/001",
+    "metadataHash": "0x24f58d3fcaa80aa0cbe4c88b0ce7d4a23312fa95ca201300a7313894970e883e",
+    "tariff": "2500",
+    "durationSeconds": "86400",
+    "payer": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+    "machineOwner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+    "relayWorker": "0x907Ee88F8218E396B5A256950C8ab97A52FB9CC1"
+  },
+  "deployments": {
+    "sepolia": {
+      "network": "ethereum-sepolia",
+      "chainId": 11155111,
+      "deployer": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "paymentToken": {
+        "address": "0x43f2a86F5652957Aa5615413D406e037162a8247",
+        "deployedByScript": true,
+        "transactionHash": "0x12af2e6fcaf760812f073f5f0724b68690943ece9b9699c672e64c079b31f43f",
+        "blockHash": "0x6abbb07ef5ac96e358f5dceb5883b33156d329c3cb1315061c85322815dcf5c5",
+        "blockNumber": 11691301
+      },
+      "usagePaymentRegistry": {
+        "address": "0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA",
+        "transactionHash": "0xe42bff45341f23a228bd400864732e96d78ec64168ce48f3dc0227f81f858fbf",
+        "blockHash": "0x5178241a29e7dc5e8fac957fd632d03f82f16ec52b9e9022d13cd1fd72a42f16",
+        "blockNumber": 11691302,
+        "explorerUrl": "https://sepolia.etherscan.io/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA"
+      },
+      "deployedAt": "2026-09-12T20:41:16.218Z"
+    },
+    "creditcoin": {
+      "network": "creditcoin-testnet-cc3",
+      "chainId": 102031,
+      "deployer": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "source": {
+        "network": "ethereum-sepolia",
+        "chainKey": 1,
+        "usagePaymentRegistry": "0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA"
+      },
+      "machineRegistry": {
+        "address": "0x43f2a86F5652957Aa5615413D406e037162a8247",
+        "transactionHash": "0x8a35638cb8fe105be67b5c1cb1be99dfb1f61008c303ff8cde7caf9116f6409a",
+        "blockHash": "0xca98d7fa241496f3c04ed633ec4743215b8bab2946ddb2399b299123089cfcd6",
+        "blockNumber": 5476972,
+        "explorerUrl": "https://creditcoin-testnet.blockscout.com/address/0x43f2a86F5652957Aa5615413D406e037162a8247"
+      },
+      "accessPass": {
+        "address": "0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA",
+        "transactionHash": "0x3bccbb4f3979b37c1312a8516867302cc2995216d1ed4225da0ad9c983de796a",
+        "blockHash": "0x63fde458ed61a1ce1f565771a357e8f84897aadd82111bb5102a3cc12ecdce46",
+        "blockNumber": 5476973,
+        "explorerUrl": "https://creditcoin-testnet.blockscout.com/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA"
+      },
+      "proofKeyASC": {
+        "address": "0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7",
+        "transactionHash": "0xc1b45e0494ae3723f9782b15e8e77ccf5656d125bafda0fdc2bb2668eab411af",
+        "blockHash": "0x487f40b5d46c7328c1c4db01884af46f9d350bb92cbab66e8ef692bbddb96d28",
+        "blockNumber": 5476974,
+        "explorerUrl": "https://creditcoin-testnet.blockscout.com/address/0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7"
+      },
+      "authorizerInitialization": {
+        "transactionHash": "0x06d2a6caf6f191ed827b20df75d6235bf7b336e72e347865877f258fdf9d6d2b",
+        "blockHash": "0x83fcd1519ac5882c942fbc338ad410ef805bdc6d3a02c885b0bcf0fa0de93f78",
+        "blockNumber": 5476975
+      },
+      "deployedAt": "2026-09-12T20:42:33.572Z"
+    }
+  },
+  "configurationTransactions": [
+    {
+      "purpose": "register demo machine",
+      "transactionHash": "0x4b2f4a93ae2f6e9d57bf2386146ba3f7a7ce84033e76f82a2c7cb076809192aa",
+      "blockNumber": 5476982,
+      "explorerUrl": "https://creditcoin-testnet.blockscout.com/tx/0x4b2f4a93ae2f6e9d57bf2386146ba3f7a7ce84033e76f82a2c7cb076809192aa"
+    },
+    {
+      "purpose": "configure Sepolia machine offer",
+      "transactionHash": "0x930a18d0a55f2a16153dbaf90a5719a47d97f1190db7f13ebd371a3fcc63c369",
+      "blockNumber": 11691319,
+      "explorerUrl": "https://sepolia.etherscan.io/tx/0x930a18d0a55f2a16153dbaf90a5719a47d97f1190db7f13ebd371a3fcc63c369"
+    },
+    {
+      "purpose": "mint demo payment tokens",
+      "transactionHash": "0xb5308562cd5c99e8167c1ffacd2a80cd1effcb36f216cb457ed897d8b2dc308c",
+      "blockNumber": 11691320,
+      "explorerUrl": "https://sepolia.etherscan.io/tx/0xb5308562cd5c99e8167c1ffacd2a80cd1effcb36f216cb457ed897d8b2dc308c"
+    },
+    {
+      "purpose": "approve usage payment",
+      "transactionHash": "0x4155d773ff3b341d78b03352ad51779ff5bfdeee9236964d6e32ba0a8b4272aa8",
+      "blockNumber": 11691322,
+      "explorerUrl": "https://sepolia.etherscan.io/tx/0x4155d773ff3b341d78b03352ad51779ff5bfdeee9236964d6e32ba0a8b4272aa8"
+    }
+  ],
+  "payment": {
+    "orderId": "0x629c460ef76530434d56fff43d823d0ae513a1af57218dadf2de953dd86cf062",
+    "machineId": "0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc",
+    "payer": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+    "beneficiary": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+    "startTime": "1789245924",
+    "duration": "86400",
+    "amount": "216000000",
+    "transactionHash": "0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967",
+    "blockHash": "0x31dcb4760058e78531f2434c99b85fa880854b5bbbea18dba8694bae15756763",
+    "blockNumber": 11691323,
+    "explorerUrl": "https://sepolia.etherscan.io/tx/0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967"
+  },
+  "attestation": {
+    "proofBuilder": "Attestcoin Proof Builder",
+    "chainKey": 1,
+    "provenBlockHeight": 11691323,
+    "merkleRoot": "0x76534f81e4ee7507be2d44d57f8154cb85d04736387140d3c416806bde11d3fe"
+  },
+  "authorization": {
+    "transactionHash": "0x45313262557698e745662272a1da814b74bcebb65b39990b44603c78cca64510",
+    "blockHash": "0x76160cf344c7860a171807d772e706698d275932bea21888d1de62f37b990a7b",
+    "blockNumber": 5477036,
+    "explorerUrl": "https://creditcoin-testnet.blockscout.com/tx/0x45313262557698e745662272a1da814b74bcebb65b39990b44603c78cca64510",
+    "authorizationId": "0x629c460ef76530434d56fff43d823d0ae513a1af57218dadf2de953dd86cf062",
+    "expiresAt": "1789332324",
+    "authorizedAtRecording": true
+  }
+}

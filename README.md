@@ -92,6 +92,38 @@ npm run deploy:cc3 --workspace @proofkey/contracts
 
 This deploys `MachineRegistry`, a fail-closed `AccessPass`, and `ProofKeyASC`, then permanently initializes the ASC as the only access authorizer. The generated `packages/contracts/deployments/cc3-testnet.json` records every address, transaction hash, block hash, block number, and explorer URL.
 
+## Record the live testnet MVP
+
+Fund `DEPLOYER_PRIVATE_KEY` on both Sepolia and Creditcoin CC3, and fund `WORKER_PRIVATE_KEY` on CC3 for proof-execution gas. Keep both keys only in the ignored root `.env`. After the two deployment manifests above exist, run:
+
+```bash
+npm run live:mvp
+```
+
+The command registers the canonical demo machine on Creditcoin, mirrors its owner and tariff into the Sepolia offer, mints and approves demo `MockUSDC` when applicable, makes a real usage payment, waits for Attestcoin finality, obtains the official Merkle and continuity proof, executes `ProofKeyASC`, and verifies `AccessPass.isAuthorized`.
+
+Only after every check passes does it write `packages/contracts/deployments/live-mvp.json` and `packages/contracts/fixtures/recorded-live-proof.json`. Both outputs contain public addresses, transaction hashes, block heights, chain key, proof material, explorer links, and explicit `recorded-live` / `fresh: false` provenance. They never contain keys or RPC URLs. If a payment succeeded but the attestation step was interrupted, set its public hash as `DEMO_SOURCE_TRANSACTION_HASH` and rerun rather than paying again.
+
+Anyone with Sepolia and CC3 RPC access can independently re-check the contract code, receipts, proof-to-payment linkage, processed order, and recorded `AccessPass` credential:
+
+```bash
+npm run live:verify
+```
+
+### Verified live deployment — September 12, 2026
+
+| Component                | Network        | Address / transaction                                                                                                             |        Block |
+| ------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------- | -----------: |
+| MockUSDC                 | Sepolia        | [`0x43f2…a8247`](https://sepolia.etherscan.io/address/0x43f2a86F5652957Aa5615413D406e037162a8247)                                 | `11,691,301` |
+| UsagePaymentRegistry     | Sepolia        | [`0xa2D8…127AA`](https://sepolia.etherscan.io/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA)                                 | `11,691,302` |
+| Live usage payment       | Sepolia        | [`0xb646…7b967`](https://sepolia.etherscan.io/tx/0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967)              | `11,691,323` |
+| MachineRegistry          | Creditcoin CC3 | [`0x43f2…a8247`](https://creditcoin-testnet.blockscout.com/address/0x43f2a86F5652957Aa5615413D406e037162a8247)                    |  `5,476,972` |
+| AccessPass               | Creditcoin CC3 | [`0xa2D8…127AA`](https://creditcoin-testnet.blockscout.com/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA)                    |  `5,476,973` |
+| ProofKeyASC              | Creditcoin CC3 | [`0x79fA…775e7`](https://creditcoin-testnet.blockscout.com/address/0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7)                    |  `5,476,974` |
+| Attestcoin authorization | Creditcoin CC3 | [`0x4531…64510`](https://creditcoin-testnet.blockscout.com/tx/0x45313262557698e745662272a1da814b74bcebb65b39990b44603c78cca64510) |  `5,477,036` |
+
+The payment in Sepolia block `11,691,323` was proven with Attestcoin source chain key `1`. Creditcoin processed order `0x629c460ef76530434d56fff43d823d0ae513a1af57218dadf2de953dd86cf062` and issued the payer a live, non-transferable access credential. The complete secret-free evidence is in `packages/contracts/deployments/live-mvp.json`; the proof fixture is explicitly historical and labeled `recorded-live` / `fresh: false`.
+
 ## Networks
 
 | Network                  |   Chain ID | Public RPC                                   | Explorer                                    |

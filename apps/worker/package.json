@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "live:mvp": "npm run build && node dist/live-mvp.js",
+    "live:verify": "npm run build && node dist/verify-live.js",
     "relay": "npm run build && node dist/cli.js",
     "serve": "npm run build && node dist/server.js",
-    "test": "npm run build && node --test dist/http.test.js dist/queue.test.js dist/relay.test.js dist/store.test.js",
+    "test": "npm run build && node --test dist/evidence.test.js dist/http.test.js dist/queue.test.js dist/relay.test.js dist/store.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

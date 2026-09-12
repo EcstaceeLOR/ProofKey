@@ -1,0 +1,37 @@
+{
+  "network": "creditcoin-testnet-cc3",
+  "chainId": 102031,
+  "deployer": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+  "source": {
+    "network": "ethereum-sepolia",
+    "chainKey": 1,
+    "usagePaymentRegistry": "0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA"
+  },
+  "machineRegistry": {
+    "address": "0x43f2a86F5652957Aa5615413D406e037162a8247",
+    "transactionHash": "0x8a35638cb8fe105be67b5c1cb1be99dfb1f61008c303ff8cde7caf9116f6409a",
+    "blockHash": "0xca98d7fa241496f3c04ed633ec4743215b8bab2946ddb2399b299123089cfcd6",
+    "blockNumber": 5476972,
+    "explorerUrl": "https://creditcoin-testnet.blockscout.com/address/0x43f2a86F5652957Aa5615413D406e037162a8247"
+  },
+  "accessPass": {
+    "address": "0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA",
+    "transactionHash": "0x3bccbb4f3979b37c1312a8516867302cc2995216d1ed4225da0ad9c983de796a",
+    "blockHash": "0x63fde458ed61a1ce1f565771a357e8f84897aadd82111bb5102a3cc12ecdce46",
+    "blockNumber": 5476973,
+    "explorerUrl": "https://creditcoin-testnet.blockscout.com/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA"
+  },
+  "proofKeyASC": {
+    "address": "0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7",
+    "transactionHash": "0xc1b45e0494ae3723f9782b15e8e77ccf5656d125bafda0fdc2bb2668eab411af",
+    "blockHash": "0x487f40b5d46c7328c1c4db01884af46f9d350bb92cbab66e8ef692bbddb96d28",
+    "blockNumber": 5476974,
+    "explorerUrl": "https://creditcoin-testnet.blockscout.com/address/0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7"
+  },
+  "authorizerInitialization": {
+    "transactionHash": "0x06d2a6caf6f191ed827b20df75d6235bf7b336e72e347865877f258fdf9d6d2b",
+    "blockHash": "0x83fcd1519ac5882c942fbc338ad410ef805bdc6d3a02c885b0bcf0fa0de93f78",
+    "blockNumber": 5476975
+  },
+  "deployedAt": "2026-09-12T20:42:33.572Z"
+}
