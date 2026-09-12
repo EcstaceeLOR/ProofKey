@@ -11,4 +11,8 @@ ProofKey's Solidity contracts compile with Solidity `0.8.28`.
 - payment transfers directly from payer to beneficiary; and
 - `UsagePaid` contains the complete authorization record consumed by the Attestcoin/Creditcoin path.
 
-`mocks/MockUSDC.sol` is a permissionless test token and must never be used as a real asset.
+`MachineRegistry.sol` stores each Creditcoin machine's owner, controller, metadata commitment, tariff, and active status. Only the recorded machine owner can change its configuration.
+
+`AccessPass.sol` stores non-transferable credentials keyed directly by machine and beneficiary. Only the configured Attestcoin authorization contract can grant or extend a credential; `isAuthorized` automatically accounts for both expiry and machine deactivation.
+
+Contracts under `mocks/` are test-only and must not be treated as production trust anchors or assets.
