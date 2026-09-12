@@ -22,7 +22,8 @@
     "lint": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
     "test:contracts": "npm run test --workspace @proofkey/contracts",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify:contracts": "node --use-system-ca scripts/verify-deployments.mjs --submit"
   },
   "devDependencies": {
     "prettier": "3.9.4",

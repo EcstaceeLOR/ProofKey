@@ -100,8 +100,8 @@ Recorded September 12, 2026.
 
 | Component                | Network        | Address / transaction                                                                                                             |        Block |
 | ------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------- | -----------: |
-| ProofKey MockUSDC        | Sepolia        | [`0x43f2…a8247`](https://sepolia.etherscan.io/address/0x43f2a86F5652957Aa5615413D406e037162a8247)                                 | `11,691,301` |
-| UsagePaymentRegistry     | Sepolia        | [`0xa2D8…127AA`](https://sepolia.etherscan.io/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA)                                 | `11,691,302` |
+| ProofKey MockUSDC        | Sepolia        | [`0x43f2…a8247`](https://eth-sepolia.blockscout.com/address/0x43f2a86F5652957Aa5615413D406e037162a8247)                           | `11,691,301` |
+| UsagePaymentRegistry     | Sepolia        | [`0xa2D8…127AA`](https://eth-sepolia.blockscout.com/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA)                           | `11,691,302` |
 | Live usage payment       | Sepolia        | [`0xb646…7b967`](https://sepolia.etherscan.io/tx/0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967)              | `11,691,323` |
 | MachineRegistry          | Creditcoin CC3 | [`0x43f2…a8247`](https://creditcoin-testnet.blockscout.com/address/0x43f2a86F5652957Aa5615413D406e037162a8247)                    |  `5,476,972` |
 | AccessPass               | Creditcoin CC3 | [`0xa2D8…127AA`](https://creditcoin-testnet.blockscout.com/address/0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA)                    |  `5,476,973` |
@@ -116,6 +116,8 @@ Live identifiers:
 - Order ID: `0x629c460ef76530434d56fff43d823d0ae513a1af57218dadf2de953dd86cf062`
 
 The secret-free deployment record is in [`packages/contracts/deployments/live-mvp.json`](packages/contracts/deployments/live-mvp.json). [`packages/contracts/fixtures/recorded-live-proof.json`](packages/contracts/fixtures/recorded-live-proof.json) contains the real proof material and is explicitly labeled `recorded-live` / `fresh: false`; it is historical evidence, not a fresh or replayable authorization.
+
+All five deployed contracts are fully source-verified on Blockscout using the exact committed Hardhat compiler settings. Re-run `npm run verify:contracts` after compiling to verify the recorded deployments idempotently.
 
 ## Quick start
 
@@ -241,4 +243,4 @@ Official Creditcoin endpoint documentation: <https://docs.creditcoin.org/smart-c
 - [`@gluwa/asc-contracts`](https://www.npmjs.com/package/@gluwa/asc-contracts) for the native verifier interface and EVM receipt decoder
 - [ethers](https://github.com/ethers-io/ethers.js), [Hardhat](https://hardhat.org/), and [Vite](https://vite.dev/)
 
-ProofKey's package metadata declares the project under the MIT license. Third-party packages retain their respective licenses.
+ProofKey is released under the [MIT License](LICENSE). Third-party packages retain their respective licenses.
