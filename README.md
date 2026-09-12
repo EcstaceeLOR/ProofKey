@@ -28,6 +28,17 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 | `packages/contracts` | Creditcoin EVM contracts and Hardhat tests              |
 | `apps/worker`        | Telemetry verification and Attestcoin submission worker |
 | `apps/web`           | Operator and lender web application                     |
+| `apps/device`        | Fail-closed Creditcoin machine simulator                |
+
+## Run the machine simulator
+
+Set the public `VITE_*` device values in `.env`, then run:
+
+```bash
+npm run dev --workspace @proofkey/device
+```
+
+The standalone simulator can be displayed beside the customer UI. It polls `AccessPass.isAuthorized` and the associated credential directly on Creditcoin, visibly moves through locked, unlocking, unlocked, and expired states, and locks on RPC failure. See [`apps/device/README.md`](apps/device/README.md) for configuration details.
 
 ## Relay a payment proof
 
