@@ -54,6 +54,46 @@ contract RejectingNativeQueryVerifier {
     }
 }
 
+/// @dev Test-only verifier that binds every proof field together deterministically.
+/// It exercises ProofKeyASC's fail-closed boundary; it is not live-precompile evidence.
+contract ProofBindingNativeQueryVerifier {
+    function calculateTxIndex(
+        INativeQueryVerifier.MerkleProof calldata proof
+    ) external pure returns (uint64) {
+        return uint64(uint256(proof.root));
+    }
+
+    function verifyAndEmit(
+        uint64 chainKey,
+        uint64 blockHeight,
+        bytes calldata encodedTransaction,
+        INativeQueryVerifier.MerkleProof calldata merkleProof,
+        INativeQueryVerifier.ContinuityProof calldata continuityProof
+    ) external pure returns (bool) {
+        if (merkleProof.siblings.length != 1 || continuityProof.roots.length != 1) {
+            return false;
+        }
+
+        bytes32 expectedRoot = keccak256(encodedTransaction);
+        bytes32 expectedSibling = keccak256(abi.encode(expectedRoot));
+        bytes32 expectedLowerEndpoint = keccak256(
+            abi.encode(chainKey, blockHeight, expectedRoot)
+        );
+        bytes32 expectedContinuityRoot = keccak256(
+            abi.encode(expectedLowerEndpoint, expectedSibling)
+        );
+
+        return
+            merkleProof.root == expectedRoot &&
+            merkleProof.siblings[0].hash == expectedSibling &&
+            merkleProof.siblings[0].isLeft &&
+            continuityProof.lowerEndpointDigest == expectedLowerEndpoint &&
+            continuityProof.roots[0] == expectedContinuityRoot;
+    }
+}
+
+/// @notice Local security tests using test doubles etched over precompile 0x0FD2.
+/// @dev Live Creditcoin precompile evidence is deliberately kept outside this suite.
 contract ProofKeyASCTest {
     struct UsageFixture {
         address transactionTo;
@@ -68,6 +108,13 @@ contract ProofKeyASCTest {
         uint64 duration;
         uint256 amount;
         uint8 receiptStatus;
+    }
+
+    struct BoundProof {
+        bytes32 merkleRoot;
+        bytes32 siblingHash;
+        bytes32 lowerEndpointDigest;
+        bytes32 continuityRoot;
     }
 
     VmProofKey private constant vm =
@@ -146,6 +193,7 @@ contract ProofKeyASCTest {
             )
         );
         _execute(3, MERKLE_ROOT, _encode(_validUsage()));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForWrongTransactionSourceAddress() public {
@@ -160,6 +208,7 @@ contract ProofKeyASCTest {
             )
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForWrongLogEmitter() public {
@@ -174,6 +223,7 @@ contract ProofKeyASCTest {
             )
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForWrongEventSignature() public {
@@ -182,6 +232,7 @@ contract ProofKeyASCTest {
 
         vm.expectRevert(abi.encodeWithSelector(ProofKeyASC.InvalidEventCount.selector, 0));
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForWrongPayer() public {
@@ -192,6 +243,8 @@ contract ProofKeyASCTest {
             abi.encodeWithSelector(ProofKeyASC.PayerMismatch.selector, OTHER_USER, PAYER)
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
+        _assertNoAccess(MACHINE_ID, OTHER_USER, ORDER_ID);
     }
 
     function test_RevertForWrongBeneficiary() public {
@@ -206,6 +259,7 @@ contract ProofKeyASCTest {
             )
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForUnknownMachine() public {
@@ -217,6 +271,8 @@ contract ProofKeyASCTest {
             abi.encodeWithSelector(ProofKeyASC.InvalidMachine.selector, unknownMachine)
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
+        _assertNoAccess(unknownMachine, PAYER, ORDER_ID);
     }
 
     function test_RevertForWrongAmount() public {
@@ -232,6 +288,7 @@ contract ProofKeyASCTest {
             )
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForZeroDuration() public {
@@ -242,6 +299,7 @@ contract ProofKeyASCTest {
             abi.encodeWithSelector(ProofKeyASC.InvalidDuration.selector, uint64(0))
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForDurationAboveSourceMaximum() public {
@@ -253,6 +311,7 @@ contract ProofKeyASCTest {
             abi.encodeWithSelector(ProofKeyASC.InvalidDuration.selector, usage.duration)
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForExpiredUsageWindow() public {
@@ -263,6 +322,7 @@ contract ProofKeyASCTest {
             abi.encodeWithSelector(ProofKeyASC.InvalidExpiry.selector, CURRENT_TIME)
         );
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForFailedSourceReceipt() public {
@@ -271,6 +331,7 @@ contract ProofKeyASCTest {
 
         vm.expectRevert(ProofKeyASC.FailedSourceReceipt.selector);
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(usage));
+        _assertNoDefaultAccess();
     }
 
     function test_RevertWhenNativeProofVerifierRejects() public {
@@ -279,6 +340,62 @@ contract ProofKeyASCTest {
 
         vm.expectRevert(ProofKeyASC.ProofVerificationFailed.selector);
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(_validUsage()));
+        _assertNoDefaultAccess();
+    }
+
+    function test_ProofBindingHarnessAcceptsUntamperedEvidence() public {
+        _useProofBindingVerifier();
+        bytes memory encodedTransaction = _encode(_validUsage());
+        BoundProof memory proof = _boundProof(encodedTransaction);
+
+        bool success = _executeBoundProof(encodedTransaction, proof);
+
+        require(success, "bound proof did not succeed");
+        require(accessPass.isAuthorized(MACHINE_ID, PAYER), "payer not authorized");
+    }
+
+    function test_RevertForTamperedTransactionBytes() public {
+        _useProofBindingVerifier();
+        bytes memory encodedTransaction = _encode(_validUsage());
+        BoundProof memory proof = _boundProof(encodedTransaction);
+        bytes memory tamperedTransaction = bytes.concat(encodedTransaction, hex"00");
+
+        vm.expectRevert(ProofKeyASC.ProofVerificationFailed.selector);
+        _executeBoundProof(tamperedTransaction, proof);
+        _assertNoDefaultAccess();
+    }
+
+    function test_RevertForTamperedMerkleRoot() public {
+        _useProofBindingVerifier();
+        bytes memory encodedTransaction = _encode(_validUsage());
+        BoundProof memory proof = _boundProof(encodedTransaction);
+        proof.merkleRoot = keccak256("tampered-merkle-root");
+
+        vm.expectRevert(ProofKeyASC.ProofVerificationFailed.selector);
+        _executeBoundProof(encodedTransaction, proof);
+        _assertNoDefaultAccess();
+    }
+
+    function test_RevertForTamperedMerkleSibling() public {
+        _useProofBindingVerifier();
+        bytes memory encodedTransaction = _encode(_validUsage());
+        BoundProof memory proof = _boundProof(encodedTransaction);
+        proof.siblingHash = keccak256("tampered-merkle-sibling");
+
+        vm.expectRevert(ProofKeyASC.ProofVerificationFailed.selector);
+        _executeBoundProof(encodedTransaction, proof);
+        _assertNoDefaultAccess();
+    }
+
+    function test_RevertForTamperedContinuityData() public {
+        _useProofBindingVerifier();
+        bytes memory encodedTransaction = _encode(_validUsage());
+        BoundProof memory proof = _boundProof(encodedTransaction);
+        proof.continuityRoot = keccak256("tampered-continuity-root");
+
+        vm.expectRevert(ProofKeyASC.ProofVerificationFailed.selector);
+        _executeBoundProof(encodedTransaction, proof);
+        _assertNoDefaultAccess();
     }
 
     function test_RevertForQueryReplay() public {
@@ -287,6 +404,7 @@ contract ProofKeyASCTest {
 
         vm.expectPartialRevert(ProofKeyASC.QueryAlreadyProcessed.selector);
         _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, encodedTransaction);
+        _assertDefaultAccessUnchanged();
     }
 
     function test_RevertForOrderReplayUnderDifferentQuery() public {
@@ -302,15 +420,27 @@ contract ProofKeyASCTest {
             keccak256("different-proof-root"),
             encodedTransaction
         );
+        _assertDefaultAccessUnchanged();
+    }
+
+    function test_AccessReturnsFalseAtExpiry() public {
+        _execute(SEPOLIA_CHAIN_KEY, MERKLE_ROOT, _encode(_validUsage()));
+        require(accessPass.isAuthorized(MACHINE_ID, PAYER), "access not initially valid");
+
+        vm.warp(CURRENT_TIME + DURATION);
+
+        require(!accessPass.isAuthorized(MACHINE_ID, PAYER), "access survived expiry");
     }
 
     function test_NoAdministratorCanBypassProofVerification() public {
         vm.expectRevert(AccessPass.NotAttestcoinAuthorizer.selector);
         accessPass.grantAccess(ORDER_ID, MACHINE_ID, PAYER, CURRENT_TIME + DURATION);
+        _assertNoDefaultAccess();
 
         AcceptingNativeQueryVerifier otherAuthorizer = new AcceptingNativeQueryVerifier();
         vm.expectRevert(AccessPass.AttestcoinAuthorizerAlreadySet.selector);
         accessPass.setAttestcoinAuthorizer(address(otherAuthorizer));
+        _assertNoDefaultAccess();
     }
 
     function _execute(
@@ -342,6 +472,80 @@ contract ProofKeyASCTest {
                 bytes32(0),
                 continuityRoots
             );
+    }
+
+    function _useProofBindingVerifier() internal {
+        ProofBindingNativeQueryVerifier verifier = new ProofBindingNativeQueryVerifier();
+        vm.etch(VERIFIER_PRECOMPILE, address(verifier).code);
+    }
+
+    function _boundProof(
+        bytes memory encodedTransaction
+    ) internal pure returns (BoundProof memory proof) {
+        proof.merkleRoot = keccak256(encodedTransaction);
+        proof.siblingHash = keccak256(abi.encode(proof.merkleRoot));
+        proof.lowerEndpointDigest = keccak256(
+            abi.encode(SEPOLIA_CHAIN_KEY, BLOCK_HEIGHT, proof.merkleRoot)
+        );
+        proof.continuityRoot = keccak256(
+            abi.encode(proof.lowerEndpointDigest, proof.siblingHash)
+        );
+    }
+
+    function _executeBoundProof(
+        bytes memory encodedTransaction,
+        BoundProof memory proof
+    ) internal returns (bool) {
+        INativeQueryVerifier.MerkleProofEntry[] memory siblings =
+            new INativeQueryVerifier.MerkleProofEntry[](1);
+        siblings[0] = INativeQueryVerifier.MerkleProofEntry({
+            hash: proof.siblingHash,
+            isLeft: true
+        });
+        bytes32[] memory continuityRoots = new bytes32[](1);
+        continuityRoots[0] = proof.continuityRoot;
+
+        return
+            proofKey.execute(
+                AUTHORIZE_ACCESS_ACTION,
+                SEPOLIA_CHAIN_KEY,
+                BLOCK_HEIGHT,
+                encodedTransaction,
+                proof.merkleRoot,
+                siblings,
+                proof.lowerEndpointDigest,
+                continuityRoots
+            );
+    }
+
+    function _assertNoDefaultAccess() internal view {
+        _assertNoAccess(MACHINE_ID, PAYER, ORDER_ID);
+    }
+
+    function _assertNoAccess(
+        bytes32 machineId,
+        address beneficiary,
+        bytes32 orderId
+    ) internal view {
+        require(!accessPass.isAuthorized(machineId, beneficiary), "invalid proof granted access");
+        (bytes32 authorizationId, uint64 expiresAt) = accessPass.accessCredentials(
+            machineId,
+            beneficiary
+        );
+        require(authorizationId == bytes32(0), "invalid proof stored authorization id");
+        require(expiresAt == 0, "invalid proof stored expiry");
+        require(!proofKey.processedOrders(orderId), "invalid proof consumed order");
+    }
+
+    function _assertDefaultAccessUnchanged() internal view {
+        require(accessPass.isAuthorized(MACHINE_ID, PAYER), "replay removed access");
+        (bytes32 authorizationId, uint64 expiresAt) = accessPass.accessCredentials(
+            MACHINE_ID,
+            PAYER
+        );
+        require(authorizationId == ORDER_ID, "replay changed authorization id");
+        require(expiresAt == CURRENT_TIME + DURATION, "replay changed expiry");
+        require(proofKey.processedOrders(ORDER_ID), "replay cleared order guard");
     }
 
     function _validUsage() internal view returns (UsageFixture memory usage) {

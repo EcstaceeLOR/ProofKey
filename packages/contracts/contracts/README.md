@@ -18,3 +18,5 @@ ProofKey's Solidity contracts compile with Solidity `0.8.28`.
 `ProofKeyASC.sol` is the sole verify-and-activate path. It calls Creditcoin's Native Query Verifier at `0x0FD2`, decodes the proven Sepolia receipt with `@gluwa/asc-contracts`, validates the immutable payment source and exact `UsagePaid` semantics, blocks query and order replay, and grants access atomically.
 
 Contracts under `mocks/` are test-only and must not be treated as production trust anchors or assets.
+
+The proof-security suite and the boundary between local verifier doubles and live-precompile evidence are documented in [`../test/README.md`](../test/README.md).
