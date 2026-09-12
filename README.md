@@ -1,6 +1,6 @@
 # ProofKey
 
-ProofKey turns signed device telemetry into portable, verifiable credit evidence using Attestcoin and Creditcoin.
+ProofKey turns a proven Sepolia machine-usage payment into an access pass on Creditcoin using the Attestcoin Protocol.
 
 This repository is an npm-workspaces monorepo containing the smart contracts, web application, and attestation worker.
 
@@ -28,6 +28,18 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 | `packages/contracts` | Creditcoin EVM contracts and Hardhat tests              |
 | `apps/worker`        | Telemetry verification and Attestcoin submission worker |
 | `apps/web`           | Operator and lender web application                     |
+
+## Relay a payment proof
+
+After deploying both contract stacks, set `SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS`, `PROOFKEY_ASC_ADDRESS`, and `WORKER_PRIVATE_KEY` in `.env`. The worker wallet only pays Creditcoin gas; it has no authority to grant access. Then relay one successful Sepolia `UsagePaid` transaction end to end:
+
+```bash
+npm run relay --workspace @proofkey/worker -- 0xYOUR_SEPOLIA_TRANSACTION_HASH
+```
+
+The command emits JSON-line status updates for `source_confirmation`, `attestation_wait`, `proof_generation`, and `creditcoin_execution`. It waits for Attestcoin to cover the source block, obtains Merkle and continuity proofs from the official Proof Builder, and calls `ProofKeyASC.execute`. Retries are bounded and failures name their phase. Re-running a completed transaction is harmless because both the local public job store and `ProofKeyASC` enforce idempotency.
+
+Only public transaction, order, and status metadata is written to `apps/worker/data/jobs.json`. The worker private key is loaded from `.env` and is never persisted.
 
 ## Commands
 

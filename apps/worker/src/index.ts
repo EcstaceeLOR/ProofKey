@@ -1,8 +1,6 @@
-export interface WorkerHealth {
-  service: 'proofkey-worker';
-  status: 'ready';
-}
-
-export function getWorkerHealth(): WorkerHealth {
-  return { service: 'proofkey-worker', status: 'ready' };
-}
+export { ProofRelay } from './relay.js';
+export { JsonJobStore } from './store.js';
+export { NetworkRelayAdapter } from './adapter.js';
+export { JsonConsoleReporter } from './reporter.js';
+export { PermanentRelayError, withRetry } from './retry.js';
+export type * from './types.js';

@@ -5,17 +5,16 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "relay": "npm run build && node dist/cli.js",
+    "test": "npm run build && node --test dist/relay.test.js dist/store.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "peerDependencies": {
-    "@gluwa/usc-sdk": "0.18.0"
-  },
-  "peerDependenciesMeta": {
-    "@gluwa/usc-sdk": {
-      "optional": true
-    }
+  "dependencies": {
+    "@gluwa/usc-sdk": "0.18.0",
+    "ethers": "6.17.0"
   },
   "devDependencies": {
+    "@types/node": "22.7.5",
     "typescript": "6.0.2"
   }
 }
