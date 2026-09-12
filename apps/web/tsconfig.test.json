@@ -6,5 +6,10 @@
     "outDir": "dist-test",
     "types": ["node"]
   },
-  "include": ["src/flow.ts", "src/flow.test.ts"]
+  "include": [
+    "src/flow.ts",
+    "src/flow.test.ts",
+    "src/product.ts",
+    "src/product.test.ts"
+  ]
 }

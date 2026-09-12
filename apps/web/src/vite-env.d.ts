@@ -9,6 +9,10 @@ declare global {
         event: string,
         listener: (...arguments_: unknown[]) => void,
       ) => void;
+      removeListener?: (
+        event: string,
+        listener: (...arguments_: unknown[]) => void,
+      ) => void;
     };
   }
 }
