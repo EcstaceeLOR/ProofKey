@@ -43,6 +43,7 @@ export interface RelayJob {
   orderId?: string;
   machineId?: string;
   payer?: string;
+  accessExpiresAt?: string;
   creditcoinTransactionHash?: string;
   failedAtPhase?: RelayPhase;
   error?: string;

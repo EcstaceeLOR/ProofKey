@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "relay": "npm run build && node dist/cli.js",
-    "test": "npm run build && node --test dist/relay.test.js dist/store.test.js",
+    "serve": "npm run build && node dist/server.js",
+    "test": "npm run build && node --test dist/http.test.js dist/queue.test.js dist/relay.test.js dist/store.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

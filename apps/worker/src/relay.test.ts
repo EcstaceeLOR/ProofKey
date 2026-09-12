@@ -105,6 +105,7 @@ test('processes a UsagePaid transaction through every observable phase', async (
   assert.equal(result.phase, 'completed');
   assert.equal(result.orderId, orderId);
   assert.equal(result.sourceBlockNumber, sourceReceipt.blockNumber);
+  assert.equal(result.accessExpiresAt, '1720003600');
   assert.equal(result.creditcoinTransactionHash, `0x${'cd'.repeat(32)}`);
   const transitions = reporter.statuses
     .filter((status) => status.attempt === undefined)

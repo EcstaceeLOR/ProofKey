@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "noEmit": false,
+    "outDir": "dist-test",
+    "types": ["node"]
+  },
+  "include": ["src/flow.ts", "src/flow.test.ts"]
+}
