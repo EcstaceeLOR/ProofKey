@@ -76,6 +76,9 @@ export class ProofRelay {
         orderId: receipt.payment.orderId,
         machineId: receipt.payment.machineId,
         payer: receipt.payment.payer,
+        accessExpiresAt: (
+          BigInt(receipt.payment.startTime) + BigInt(receipt.payment.duration)
+        ).toString(),
       };
       await this.store.save(job);
 

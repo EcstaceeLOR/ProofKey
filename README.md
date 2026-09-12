@@ -23,12 +23,12 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
 
 ## Workspace layout
 
-| Workspace            | Purpose                                                 |
-| -------------------- | ------------------------------------------------------- |
-| `packages/contracts` | Creditcoin EVM contracts and Hardhat tests              |
-| `apps/worker`        | Telemetry verification and Attestcoin submission worker |
-| `apps/web`           | Operator and lender web application                     |
-| `apps/device`        | Fail-closed Creditcoin machine simulator                |
+| Workspace            | Purpose                                          |
+| -------------------- | ------------------------------------------------ |
+| `packages/contracts` | Creditcoin EVM contracts and Hardhat tests       |
+| `apps/worker`        | Attestcoin proof generation and Creditcoin relay |
+| `apps/web`           | Operator and lender web application              |
+| `apps/device`        | Fail-closed Creditcoin machine simulator         |
 
 ## Run the machine simulator
 
@@ -51,6 +51,17 @@ npm run relay --workspace @proofkey/worker -- 0xYOUR_SEPOLIA_TRANSACTION_HASH
 The command emits JSON-line status updates for `source_confirmation`, `attestation_wait`, `proof_generation`, and `creditcoin_execution`. It waits for Attestcoin to cover the source block, obtains Merkle and continuity proofs from the official Proof Builder, and calls `ProofKeyASC.execute`. Retries are bounded and failures name their phase. Re-running a completed transaction is harmless because both the local public job store and `ProofKeyASC` enforce idempotency.
 
 Only public transaction, order, and status metadata is written to `apps/worker/data/jobs.json`. The worker private key is loaded from `.env` and is never persisted.
+
+## Run the customer journey
+
+With the root `.env` configured, start the worker API and customer app in separate terminals:
+
+```bash
+npm run serve --workspace @proofkey/worker
+npm run dev --workspace @proofkey/web
+```
+
+The single-screen experience connects a wallet, handles Sepolia switching, settles the machine payment, submits the transaction to the proof relay automatically, displays Attestcoin/Creditcoin progress, and reveals verified access only after Creditcoin execution succeeds.
 
 ## Commands
 

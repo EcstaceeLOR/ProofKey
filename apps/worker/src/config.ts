@@ -16,6 +16,9 @@ export interface WorkerConfig {
   retryAttempts: number;
   retryBaseDelayMs: number;
   stateFile: string;
+  serverPort: number;
+  serverHost: string;
+  frontendOrigin: string;
 }
 
 export function loadConfig(): WorkerConfig {
@@ -40,6 +43,10 @@ export function loadConfig(): WorkerConfig {
     stateFile:
       process.env.RELAY_STATE_FILE ??
       resolve(import.meta.dirname, '../data/jobs.json'),
+    serverPort: integer('WORKER_PORT', 8787),
+    serverHost: process.env.WORKER_HOST?.trim() ?? '127.0.0.1',
+    frontendOrigin:
+      process.env.FRONTEND_ORIGIN?.trim() ?? 'http://localhost:5173',
   };
 }
 

@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "dev": "vite --host 0.0.0.0",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/flow.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "ethers": "6.17.0"
+  },
   "devDependencies": {
-    "typescript": "6.0.2"
+    "@types/node": "22.7.5",
+    "typescript": "6.0.2",
+    "vite": "8.2.2"
   }
 }
