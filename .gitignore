@@ -10,4 +10,5 @@ dist/
 node_modules/
 typechain-types/
 packages/contracts/deployments/*.json
+apps/worker/data/*.json
 *.log

@@ -30,8 +30,8 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
-      - name: Test contracts
-        run: npm run test:contracts
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
