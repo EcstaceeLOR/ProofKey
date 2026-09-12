@@ -200,14 +200,28 @@ contract MachineRegistryAccessPassTest {
         machineRegistry.setMachineActive(MACHINE_ID, false);
     }
 
-    function test_AdministratorCanRotateAttestcoinAuthorizer() public {
+    function test_AdministratorCanInitializeAttestcoinAuthorizer() public {
+        AccessPass uninitializedAccessPass = new AccessPass(address(machineRegistry), address(0));
         MockAttestcoinAuthorizer replacement = new MockAttestcoinAuthorizer();
+        uninitializedAccessPass.setAttestcoinAuthorizer(address(replacement));
+
+        replacement.grant(
+            uninitializedAccessPass,
+            AUTHORIZATION_ID,
+            MACHINE_ID,
+            BENEFICIARY,
+            EXPIRY
+        );
+        require(
+            uninitializedAccessPass.isAuthorized(MACHINE_ID, BENEFICIARY),
+            "initialized authorizer cannot grant"
+        );
+    }
+
+    function test_AttestcoinAuthorizerCannotBeReplaced() public {
+        MockAttestcoinAuthorizer replacement = new MockAttestcoinAuthorizer();
+
+        vm.expectRevert(AccessPass.AttestcoinAuthorizerAlreadySet.selector);
         accessPass.setAttestcoinAuthorizer(address(replacement));
-
-        vm.expectRevert(AccessPass.NotAttestcoinAuthorizer.selector);
-        authorizer.grant(accessPass, AUTHORIZATION_ID, MACHINE_ID, BENEFICIARY, EXPIRY);
-
-        replacement.grant(accessPass, AUTHORIZATION_ID, MACHINE_ID, BENEFICIARY, EXPIRY);
-        require(accessPass.isAuthorized(MACHINE_ID, BENEFICIARY), "replacement cannot grant");
     }
 }

@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "hardhat compile",
+    "deploy:cc3": "hardhat run scripts/deploy-cc3.ts",
     "deploy:sepolia": "hardhat run scripts/deploy-sepolia.ts",
     "test": "hardhat test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@gluwa/asc-contracts": "0.2.1",
     "ethers": "6.17.0"
   },
   "devDependencies": {
