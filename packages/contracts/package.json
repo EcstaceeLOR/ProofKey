@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy-sepolia.ts",
     "test": "hardhat test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -12,6 +13,7 @@
     "ethers": "6.17.0"
   },
   "devDependencies": {
+    "@types/node": "22.7.5",
     "hardhat": "3.13.0",
     "typescript": "6.0.2"
   }
