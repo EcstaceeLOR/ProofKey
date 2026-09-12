@@ -9,4 +9,5 @@ coverage/
 dist/
 node_modules/
 typechain-types/
+packages/contracts/deployments/*.json
 *.log

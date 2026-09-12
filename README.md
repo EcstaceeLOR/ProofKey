@@ -40,6 +40,16 @@ npm run build           # all production builds
 npm run check           # complete CI gate
 ```
 
+## Deploy the payment registry to Sepolia
+
+Set `ETHEREUM_SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY` in the root `.env`, then run:
+
+```bash
+npm run deploy:sepolia --workspace @proofkey/contracts
+```
+
+If `PAYMENT_TOKEN_ADDRESS` is empty, the script deploys a permissionless `MockUSDC` for the Sepolia demo. If it is set, the script verifies that the address contains contract code and uses that ERC-20 instead. A successful run writes `packages/contracts/deployments/sepolia.json` with the registry address, transaction and block hashes, block number, deployer, payment-token details, and explorer URL.
+
 ## Networks
 
 | Network                  |   Chain ID | Public RPC                                   | Explorer                                    |
