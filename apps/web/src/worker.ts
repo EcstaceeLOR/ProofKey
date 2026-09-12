@@ -3,6 +3,11 @@ import type { RelayJob } from './flow.js';
 export class ProofWorkerClient {
   constructor(private readonly baseUrl: string) {}
 
+  async get(transactionHash: string): Promise<RelayJob> {
+    const response = await fetch(`${this.baseUrl}/jobs/${transactionHash}`);
+    return this.parse(response);
+  }
+
   async enqueue(transactionHash: string): Promise<RelayJob> {
     const response = await fetch(`${this.baseUrl}/jobs`, {
       method: 'POST',
