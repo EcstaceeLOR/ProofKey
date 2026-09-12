@@ -1,0 +1,21 @@
+{
+  "name": "@proofkey/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@gluwa/usc-sdk": "0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "@gluwa/usc-sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "6.0.2"
+  }
+}
