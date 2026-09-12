@@ -7,6 +7,7 @@ artifacts/
 cache/
 coverage/
 dist/
+dist-test/
 node_modules/
 typechain-types/
 packages/contracts/deployments/*.json

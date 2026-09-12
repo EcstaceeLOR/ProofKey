@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d1713" />
+    <meta
+      name="description"
+      content="ProofKey machine simulator driven directly by Creditcoin authorization state."
+    />
+    <title>ProofKey · Machine Simulator</title>
+  </head>
+  <body>
+    <main class="shell" data-state="locked">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="ProofKey home">
+          <span class="brand-mark" aria-hidden="true">PK</span>
+          <span>ProofKey</span>
+        </a>
+        <div class="network-pill">
+          <span class="pulse"></span> Creditcoin CC3
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="eyebrow">DEVICE 01 / LIVE AUTHORIZATION</div>
+        <h1>Machine access,<br />proven on-chain.</h1>
+        <p class="lede">
+          This simulator has no private unlock API. It reads the access decision
+          directly from Creditcoin and fails closed.
+        </p>
+      </section>
+
+      <section class="machine-panel" aria-labelledby="state-title">
+        <div class="machine-visual" aria-hidden="true">
+          <div class="scan-line"></div>
+          <div class="machine-label">EXCAVATOR / PK-001</div>
+          <div class="lock">
+            <div class="shackle"></div>
+            <div class="lock-body"><span class="keyhole"></span></div>
+          </div>
+          <div class="state-word">LOCKED</div>
+        </div>
+
+        <div class="machine-status">
+          <div class="state-heading">
+            <span class="state-dot"></span>
+            <span id="state-label">LOCKED</span>
+          </div>
+          <h2 id="state-title">Awaiting verified access</h2>
+          <p id="state-description">
+            No active AccessPass authorization has been observed for this
+            beneficiary.
+          </p>
+
+          <dl class="readout">
+            <div>
+              <dt>Machine ID</dt>
+              <dd><code id="machine-id">Not configured</code></dd>
+            </div>
+            <div>
+              <dt>Beneficiary</dt>
+              <dd><code id="beneficiary">Not configured</code></dd>
+            </div>
+            <div>
+              <dt>Authorization chain</dt>
+              <dd id="chain-name">Creditcoin CC3 Testnet · 102031</dd>
+            </div>
+            <div>
+              <dt>Access expiry</dt>
+              <dd id="access-expiry">No active credential</dd>
+            </div>
+            <div>
+              <dt>Machine registry</dt>
+              <dd id="machine-active">Waiting for chain read</dd>
+            </div>
+            <div>
+              <dt>Last checked block</dt>
+              <dd id="checked-block">—</dd>
+            </div>
+          </dl>
+
+          <div
+            id="configuration-error"
+            class="configuration-error"
+            hidden
+          ></div>
+          <button id="refresh" class="refresh-button" type="button">
+            <span>Check Creditcoin now</span><span aria-hidden="true">↗</span>
+          </button>
+          <p class="trust-note">
+            <span>✓</span> Direct contract read · No backend override
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <span>PROOF → AUTHORIZATION → PHYSICAL OUTCOME</span>
+        <span id="countdown">AUTO-CHECK IN 4S</span>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
