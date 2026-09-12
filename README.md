@@ -92,6 +92,24 @@ npm run deploy:cc3 --workspace @proofkey/contracts
 
 This deploys `MachineRegistry`, a fail-closed `AccessPass`, and `ProofKeyASC`, then permanently initializes the ASC as the only access authorizer. The generated `packages/contracts/deployments/cc3-testnet.json` records every address, transaction hash, block hash, block number, and explorer URL.
 
+## Record the live testnet MVP
+
+Fund `DEPLOYER_PRIVATE_KEY` on both Sepolia and Creditcoin CC3, and fund `WORKER_PRIVATE_KEY` on CC3 for proof-execution gas. Keep both keys only in the ignored root `.env`. After the two deployment manifests above exist, run:
+
+```bash
+npm run live:mvp
+```
+
+The command registers the canonical demo machine on Creditcoin, mirrors its owner and tariff into the Sepolia offer, mints and approves demo `MockUSDC` when applicable, makes a real usage payment, waits for Attestcoin finality, obtains the official Merkle and continuity proof, executes `ProofKeyASC`, and verifies `AccessPass.isAuthorized`.
+
+Only after every check passes does it write `packages/contracts/deployments/live-mvp.json` and `packages/contracts/fixtures/recorded-live-proof.json`. Both outputs contain public addresses, transaction hashes, block heights, chain key, proof material, explorer links, and explicit `recorded-live` / `fresh: false` provenance. They never contain keys or RPC URLs. If a payment succeeded but the attestation step was interrupted, set its public hash as `DEMO_SOURCE_TRANSACTION_HASH` and rerun rather than paying again.
+
+Anyone with Sepolia and CC3 RPC access can independently re-check the contract code, receipts, proof-to-payment linkage, processed order, and recorded `AccessPass` credential:
+
+```bash
+npm run live:verify
+```
+
 ## Networks
 
 | Network                  |   Chain ID | Public RPC                                   | Explorer                                    |

@@ -11,5 +11,8 @@ dist-test/
 node_modules/
 typechain-types/
 packages/contracts/deployments/*.json
+!packages/contracts/deployments/sepolia.json
+!packages/contracts/deployments/cc3-testnet.json
+!packages/contracts/deployments/live-mvp.json
 apps/worker/data/*.json
 *.log
