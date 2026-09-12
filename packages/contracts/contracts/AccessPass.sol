@@ -28,6 +28,7 @@ contract AccessPass {
     error InvalidBeneficiary();
     error InvalidExpiry(uint64 expiresAt);
     error InvalidMachineRegistry();
+    error AttestcoinAuthorizerAlreadySet();
     error MachineInactive(bytes32 machineId);
     error NotAdministrator();
     error NotAttestcoinAuthorizer();
@@ -56,7 +57,10 @@ contract AccessPass {
 
     constructor(address machineRegistryAddress, address attestcoinAuthorizerAddress) {
         if (machineRegistryAddress.code.length == 0) revert InvalidMachineRegistry();
-        if (attestcoinAuthorizerAddress.code.length == 0) {
+        if (
+            attestcoinAuthorizerAddress != address(0) &&
+            attestcoinAuthorizerAddress.code.length == 0
+        ) {
             revert InvalidAttestcoinAuthorizer();
         }
 
@@ -65,7 +69,9 @@ contract AccessPass {
         attestcoinAuthorizer = attestcoinAuthorizerAddress;
 
         emit AdministratorTransferred(address(0), msg.sender);
-        emit AttestcoinAuthorizerUpdated(address(0), attestcoinAuthorizerAddress);
+        if (attestcoinAuthorizerAddress != address(0)) {
+            emit AttestcoinAuthorizerUpdated(address(0), attestcoinAuthorizerAddress);
+        }
     }
 
     /// @notice Records authorization proven by the configured Attestcoin authorization contract.
@@ -99,11 +105,11 @@ contract AccessPass {
     }
 
     function setAttestcoinAuthorizer(address newAuthorizer) external onlyAdministrator {
+        if (attestcoinAuthorizer != address(0)) revert AttestcoinAuthorizerAlreadySet();
         if (newAuthorizer.code.length == 0) revert InvalidAttestcoinAuthorizer();
 
-        address previousAuthorizer = attestcoinAuthorizer;
         attestcoinAuthorizer = newAuthorizer;
-        emit AttestcoinAuthorizerUpdated(previousAuthorizer, newAuthorizer);
+        emit AttestcoinAuthorizerUpdated(address(0), newAuthorizer);
     }
 
     function transferAdministration(address newAdministrator) external onlyAdministrator {

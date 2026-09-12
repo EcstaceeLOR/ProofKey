@@ -50,6 +50,14 @@ npm run deploy:sepolia --workspace @proofkey/contracts
 
 If `PAYMENT_TOKEN_ADDRESS` is empty, the script deploys a permissionless `MockUSDC` for the Sepolia demo. If it is set, the script verifies that the address contains contract code and uses that ERC-20 instead. A successful run writes `packages/contracts/deployments/sepolia.json` with the registry address, transaction and block hashes, block number, deployer, payment-token details, and explorer URL.
 
+After deploying the Sepolia registry, set `SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS` and deploy the proof-verification stack to Creditcoin CC3 testnet:
+
+```bash
+npm run deploy:cc3 --workspace @proofkey/contracts
+```
+
+This deploys `MachineRegistry`, a fail-closed `AccessPass`, and `ProofKeyASC`, then permanently initializes the ASC as the only access authorizer. The generated `packages/contracts/deployments/cc3-testnet.json` records every address, transaction hash, block hash, block number, and explorer URL.
+
 ## Networks
 
 | Network                  |   Chain ID | Public RPC                                   | Explorer                                    |
