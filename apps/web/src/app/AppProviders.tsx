@@ -88,7 +88,31 @@ export function AppProviders({ children }: { children: ReactNode }) {
 function RuntimeProvider({ children }: { children: ReactNode }) {
   const runtime = useMemo(() => {
     try {
-      const config = loadAppConfig(import.meta.env);
+      const config = loadAppConfig({
+        PROD: import.meta.env.PROD,
+        VITE_ETHEREUM_SEPOLIA_RPC_URL: import.meta.env
+          .VITE_ETHEREUM_SEPOLIA_RPC_URL,
+        VITE_CREDITCOIN_RPC_URL: import.meta.env.VITE_CREDITCOIN_RPC_URL,
+        VITE_USAGE_PAYMENT_REGISTRY_ADDRESS: import.meta.env
+          .VITE_USAGE_PAYMENT_REGISTRY_ADDRESS,
+        VITE_MACHINE_REGISTRY_ADDRESS: import.meta.env
+          .VITE_MACHINE_REGISTRY_ADDRESS,
+        VITE_DEMO_MACHINE_ID: import.meta.env.VITE_DEMO_MACHINE_ID,
+        VITE_PROOF_WORKER_URL: import.meta.env.VITE_PROOF_WORKER_URL,
+        VITE_SEPOLIA_EXPLORER_URL: import.meta.env.VITE_SEPOLIA_EXPLORER_URL,
+        VITE_CREDITCOIN_EXPLORER_URL: import.meta.env
+          .VITE_CREDITCOIN_EXPLORER_URL,
+        VITE_DEMO_MACHINE_NAME: import.meta.env.VITE_DEMO_MACHINE_NAME,
+        VITE_DEMO_MACHINE_LOCATION: import.meta.env.VITE_DEMO_MACHINE_LOCATION,
+        VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK: import.meta.env
+          .VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK,
+        VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK: import.meta.env
+          .VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK,
+        VITE_ACCESS_PASS_ADDRESS: import.meta.env.VITE_ACCESS_PASS_ADDRESS,
+        VITE_PROOFKEY_ASC_ADDRESS: import.meta.env.VITE_PROOFKEY_ASC_ADDRESS,
+        VITE_PROOFKEY_ASC_DEPLOYMENT_BLOCK: import.meta.env
+          .VITE_PROOFKEY_ASC_DEPLOYMENT_BLOCK,
+      } as unknown as ImportMetaEnv);
       const paymentClient = new PaymentClient(config);
       return {
         config,

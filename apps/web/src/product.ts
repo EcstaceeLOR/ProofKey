@@ -7,6 +7,7 @@ export const productRoutes = [
   '/sessions/:sourceTransactionHash',
   '/proofs/:sourceTxHash',
   '/operator',
+  '/diagnostics',
   '/device/:machineId',
 ] as const;
 

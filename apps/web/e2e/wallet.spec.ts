@@ -103,3 +103,29 @@ test('connects an EIP-6963 wallet and restores it without another prompt', async
     )
     .toBe('1');
 });
+
+test('recovers an already connected wallet from the wrong network', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
+  await page.getByRole('button', { name: /Playwright Wallet/ }).click();
+  await page.getByRole('button', { name: 'Close wallet dialog' }).click();
+  await page.evaluate(async () => {
+    await (
+      window as Window & {
+        ethereum: { request: (request: unknown) => Promise<unknown> };
+      }
+    ).ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x1' }],
+    });
+  });
+  await expect(
+    page.getByRole('button', { name: 'Switch chain 1' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Switch chain 1' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Sepolia connected' }),
+  ).toBeVisible();
+});

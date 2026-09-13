@@ -20,6 +20,7 @@ test('Product V1 exposes every required route', () => {
     '/sessions/:sourceTransactionHash',
     '/proofs/:sourceTxHash',
     '/operator',
+    '/diagnostics',
     '/device/:machineId',
   ]);
 });

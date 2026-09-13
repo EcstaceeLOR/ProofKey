@@ -1,0 +1,39 @@
+name: Production smoke
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify public deployment without writes
+        run: npm run test:smoke --workspace @proofkey/web
+        env:
+          PRODUCTION_WEB_URL: https://proofkey.vercel.app
+          PRODUCTION_RELAY_URL: https://proofkey-relay.onrender.com

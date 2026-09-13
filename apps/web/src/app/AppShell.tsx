@@ -3,6 +3,7 @@ import {
   Blocks,
   Compass,
   ExternalLink,
+  HeartPulse,
   Menu,
   RadioTower,
   ShieldCheck,
@@ -21,6 +22,7 @@ const navigation = [
   { to: '/activity', label: 'My rentals', icon: Activity },
   { to: '/proofs/search', label: 'Proof explorer', icon: ShieldCheck },
   { to: '/operator', label: 'Operator', icon: Blocks },
+  { to: '/diagnostics', label: 'System', icon: HeartPulse },
 ];
 
 export function AppShell() {
@@ -141,6 +143,7 @@ export function AppShell() {
           <p>Proof-backed access for machines that work in the real world.</p>
         </div>
         <div className="footer-status">
+          <Link to="/diagnostics">System status</Link>
           <span>
             <span className="live-dot" /> CC3 testnet
           </span>

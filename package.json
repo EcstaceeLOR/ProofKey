@@ -15,7 +15,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "audit:web": "node scripts/audit-web-build.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "check:production": "node scripts/validate-production-config.mjs && npm run build --workspace @proofkey/web && npm run audit:web",
     "format": "prettier --write .",
     "live:mvp": "npm run live:mvp --workspace @proofkey/worker",
     "live:verify": "npm run live:verify --workspace @proofkey/worker",

@@ -4,7 +4,7 @@
 
 ProofKey lets a customer pay for machine time on Ethereum Sepolia and unlocks a non-transferable access credential on Creditcoin. Attestcoin proves the source transaction to Creditcoin without bridging assets or trusting the relay worker.
 
-**Status:** live testnet Product V1 · 94 automated tests · verified Sepolia-to-Creditcoin flow
+**Status:** live testnet Product V1 · 143 automated checks · verified Sepolia-to-Creditcoin flow
 
 [Launch ProofKey](https://proofkey.vercel.app) · [View the Sepolia payment](https://sepolia.etherscan.io/tx/0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967) · [View the Creditcoin authorization](https://creditcoin-testnet.blockscout.com/tx/0x45313262557698e745662272a1da814b74bcebb65b39990b44603c78cca64510)
 
@@ -187,18 +187,29 @@ Expected core result:
 npm run check
 ```
 
-The gate runs formatting, TypeScript checks, all automated tests, Solidity compilation, and production builds.
+The gate runs formatting, TypeScript checks, all automated tests, Solidity compilation, and production builds. The browser journeys run deterministically in Chromium, Firefox, and WebKit in CI, including wallet recovery, a complete mocked payment-to-access journey, device authorization, keyboard navigation, and automated WCAG checks.
 
 | Suite            |   Tests | Coverage focus                                                                                         |
 | ---------------- | ------: | ------------------------------------------------------------------------------------------------------ |
 | Solidity         |      52 | Receipt semantics, proof tampering, replay, authorization, pricing, ownership, expiry, reentrancy      |
 | Relay worker     |      23 | Leases, restart recovery, one-time handoffs, receipt signatures, CORS, readiness, secret-safe evidence |
-| Customer web     |      48 | Proof state, exact token math, operator workflow, session state machine, receipt tampering and expiry  |
-| Product browser  |       7 | Multi-page rental, operator, proof, two-browser QR handoff, signed usage, and replay rejection         |
+| Customer web     |      51 | Proof state, exact token math, operator workflow, diagnostics, privacy-safe telemetry, and sessions    |
+| Product browser  |      11 | Multi-page rental, wallets, proof, QR handoff, accessibility, payment, and recovery journeys           |
 | Device simulator |       6 | Locked/unlocking/unlocked/expired states, tampered results, RPC failure                                |
-| **Total**        | **136** |                                                                                                        |
+| **Total**        | **143** |                                                                                                        |
 
 The Solidity suite uses explicit verifier doubles at `0x0FD2` to isolate adversarial proof cases. Those tests are distinct from the committed live CC3 transaction, which executed against Creditcoin's real Native Query Verifier.
+
+### Production readiness
+
+`/diagnostics` gives operators a privacy-safe, read-only view of public configuration, relay readiness, and both required chain IDs. Client faults use stable codes and never record wallet addresses, transaction hashes, RPC URLs, or arbitrary error messages.
+
+```bash
+npm run check:production
+npm run test:smoke --workspace @proofkey/web
+```
+
+The first command rejects incomplete or local-only configuration, secret-like client bundles, missing assets, source maps, and assets over the gzip budgets. The second performs a read-only deployment smoke test. See [`RELEASE.md`](RELEASE.md) for the release checklist and required environment values.
 
 ## Repository structure
 
