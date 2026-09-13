@@ -4,8 +4,9 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http';
+import { keccak256, toUtf8Bytes } from 'ethers';
 import { PermanentRelayError } from './retry.js';
-import { publicEvidenceFromJob } from './evidence.js';
+import { assertPublicEvidence, publicEvidenceFromJob } from './evidence.js';
 import type { JobQueue } from './queue.js';
 import type { RelayReadiness } from './types.js';
 
@@ -68,17 +69,63 @@ export function createRelayHttpServer(
           readiness,
         );
       }
+      if (request.method === 'POST' && url.pathname === '/metadata') {
+        const rate = limiter.consume(clientAddress(request));
+        setRateHeaders(response, options, rate);
+        if (!rate.allowed)
+          return sendError(
+            response,
+            429,
+            'RATE_LIMITED',
+            'Too many metadata uploads. Wait for the rate-limit window to reset.',
+            true,
+          );
+        if (
+          !request.headers['content-type']
+            ?.toLowerCase()
+            .startsWith('application/json')
+        )
+          throw new PermanentRelayError(
+            'Content-Type must be application/json.',
+            'UNSUPPORTED_CONTENT_TYPE',
+          );
+        const body = await readJson(request);
+        if (
+          !body.document ||
+          typeof body.document !== 'object' ||
+          Array.isArray(body.document)
+        )
+          throw new PermanentRelayError(
+            'document must be a machine metadata object.',
+            'INVALID_METADATA',
+          );
+        try {
+          assertPublicEvidence(body.document);
+        } catch (error) {
+          throw new PermanentRelayError(
+            error instanceof Error ? error.message : 'Metadata is not public.',
+            'INVALID_METADATA',
+          );
+        }
+        const document = canonicalize(
+          body.document as Record<string, unknown>,
+        ) as Record<string, unknown>;
+        const contentDigest = keccak256(toUtf8Bytes(JSON.stringify(document)));
+        const uri = `${requestOrigin(request)}/metadata/${contentDigest}`;
+        const commitment = keccak256(toUtf8Bytes(uri));
+        const metadata = {
+          contentDigest,
+          commitment,
+          uri,
+          document,
+          createdAt: new Date().toISOString(),
+        };
+        await queue.putMetadata(metadata);
+        return send(response, 201, metadata);
+      }
       if (request.method === 'POST' && url.pathname === '/jobs') {
         const rate = limiter.consume(clientAddress(request));
-        response.setHeader(
-          'RateLimit-Limit',
-          String(options.rateLimit.requests),
-        );
-        response.setHeader('RateLimit-Remaining', String(rate.remaining));
-        response.setHeader(
-          'RateLimit-Reset',
-          String(Math.ceil(rate.resetsAt / 1_000)),
-        );
+        setRateHeaders(response, options, rate);
         if (!rate.allowed)
           return sendError(
             response,
@@ -131,6 +178,52 @@ export function createRelayHttpServer(
               false,
             );
       }
+      const metadataMatch = /^\/metadata\/(0x[0-9a-fA-F]{64})$/.exec(
+        url.pathname,
+      );
+      if (request.method === 'GET' && metadataMatch?.[1]) {
+        const metadata = await queue.getMetadataByDigest(metadataMatch[1]);
+        if (!metadata)
+          return sendError(
+            response,
+            404,
+            'METADATA_NOT_FOUND',
+            'Machine metadata was not found.',
+            false,
+          );
+        response.setHeader(
+          'Cache-Control',
+          'public, max-age=31536000, immutable',
+        );
+        return send(response, 200, {
+          ...metadata.document,
+          uri: metadata.uri,
+          contentDigest: metadata.contentDigest,
+          commitment: metadata.commitment,
+        });
+      }
+      const commitmentMatch =
+        /^\/metadata\/commitments\/(0x[0-9a-fA-F]{64})$/.exec(url.pathname);
+      if (request.method === 'GET' && commitmentMatch?.[1]) {
+        const metadata = await queue.getMetadataByCommitment(
+          commitmentMatch[1],
+        );
+        if (!metadata)
+          return sendError(
+            response,
+            404,
+            'METADATA_NOT_FOUND',
+            'Machine metadata commitment was not found.',
+            false,
+          );
+        response.setHeader('Cache-Control', 'public, max-age=300');
+        return send(response, 200, {
+          ...metadata.document,
+          uri: metadata.uri,
+          contentDigest: metadata.contentDigest,
+          commitment: metadata.commitment,
+        });
+      }
       return sendError(
         response,
         404,
@@ -151,6 +244,48 @@ export function createRelayHttpServer(
           );
     }
   });
+}
+
+function setRateHeaders(
+  response: ServerResponse,
+  options: RelayHttpOptions,
+  rate: { remaining: number; resetsAt: number },
+): void {
+  response.setHeader('RateLimit-Limit', String(options.rateLimit.requests));
+  response.setHeader('RateLimit-Remaining', String(rate.remaining));
+  response.setHeader(
+    'RateLimit-Reset',
+    String(Math.ceil(rate.resetsAt / 1_000)),
+  );
+}
+
+function requestOrigin(request: IncomingMessage): string {
+  const forwardedProtocol = request.headers['x-forwarded-proto'];
+  const protocol = (
+    Array.isArray(forwardedProtocol)
+      ? forwardedProtocol[0]
+      : forwardedProtocol?.split(',')[0]
+  )?.trim();
+  const forwardedHost = request.headers['x-forwarded-host'];
+  const host =
+    (Array.isArray(forwardedHost)
+      ? forwardedHost[0]
+      : forwardedHost?.split(',')[0]
+    )?.trim() ?? request.headers.host;
+  const resolvedProtocol = protocol === 'https' ? 'https' : 'http';
+  if (!host || !/^[a-z0-9.:[\]-]+$/i.test(host))
+    throw new PermanentRelayError('Request host is invalid.', 'INVALID_HOST');
+  return `${resolvedProtocol}://${host}`;
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, canonicalize(entry)]),
+  );
 }
 
 class FixedWindowRateLimiter {

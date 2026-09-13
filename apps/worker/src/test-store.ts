@@ -1,8 +1,13 @@
-import type { DurableJobStore, RelayJob } from './types.js';
+import type {
+  DurableJobStore,
+  RelayJob,
+  StoredMachineMetadata,
+} from './types.js';
 
 export class MemoryDurableStore implements DurableJobStore {
   readonly jobs = new Map<string, RelayJob>();
   private readonly leases = new Map<string, string>();
+  readonly metadata = new Map<string, StoredMachineMetadata>();
 
   async get(transactionHash: string): Promise<RelayJob | undefined> {
     const job = this.jobs.get(transactionHash.toLowerCase());
@@ -29,6 +34,30 @@ export class MemoryDurableStore implements DurableJobStore {
       )
         return structuredClone(job);
     }
+    return undefined;
+  }
+
+  async putMetadata(metadata: StoredMachineMetadata): Promise<void> {
+    if (!this.metadata.has(metadata.contentDigest.toLowerCase()))
+      this.metadata.set(
+        metadata.contentDigest.toLowerCase(),
+        structuredClone(metadata),
+      );
+  }
+
+  async getMetadataByDigest(
+    contentDigest: string,
+  ): Promise<StoredMachineMetadata | undefined> {
+    const metadata = this.metadata.get(contentDigest.toLowerCase());
+    return metadata && structuredClone(metadata);
+  }
+
+  async getMetadataByCommitment(
+    commitment: string,
+  ): Promise<StoredMachineMetadata | undefined> {
+    for (const metadata of this.metadata.values())
+      if (metadata.commitment.toLowerCase() === commitment.toLowerCase())
+        return structuredClone(metadata);
     return undefined;
   }
 

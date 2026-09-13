@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { Interface } from 'ethers';
+import { Interface, keccak256, toUtf8Bytes } from 'ethers';
 
 const machineId =
   '0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc';
@@ -13,6 +13,7 @@ const machineInterface = new Interface([
 const paymentInterface = new Interface([
   'function machineOffers(bytes32) view returns (address beneficiary,uint128 pricePerSecond,bool active)',
   'function paymentToken() view returns (address)',
+  'function owner() view returns (address)',
 ]);
 const tokenInterface = new Interface([
   'function decimals() view returns (uint8)',
@@ -40,7 +41,9 @@ test('Explore, machine detail, and checkout form one verified journey', async ({
     page.getByRole('heading', { name: 'Industrial Excavator' }),
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole('link', { name: 'View machine' }).click();
-  await expect(page).toHaveURL(new RegExp(`/machines/${machineId}$`));
+  await expect(page).toHaveURL(new RegExp(`/machines/${machineId}$`), {
+    timeout: 15_000,
+  });
   await expect(page.getByText('22-ton operating capacity')).toBeVisible();
   const bookingLink = page.getByRole('link', { name: /Book machine time/ });
   await expect(bookingLink).toHaveAttribute('href', `/rent/${machineId}`);
@@ -127,6 +130,98 @@ test('proof explorer resolves an order ID and recomputes every cross-chain invar
   await expect(
     page.getByRole('button', { name: 'Download JSON' }),
   ).toBeVisible();
+});
+
+test('operator metadata upload fails closed then resumes the confirmed onboarding step', async ({
+  page,
+}) => {
+  await installWallet(page);
+  await mockMarketplaceRpc(page);
+  const digest = `0x${'71'.repeat(32)}`;
+  const uri = `https://relay.invalid/metadata/${digest}`;
+  const commitment = keccak256(toUtf8Bytes(uri));
+  let uploads = 0;
+  await page.route('https://relay.invalid/metadata', async (route) => {
+    uploads += 1;
+    if (uploads === 1)
+      return route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { message: 'Metadata storage is temporarily unavailable.' },
+        }),
+      });
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        contentDigest: digest,
+        commitment,
+        uri,
+        document: { name: 'Autonomous Wheel Loader' },
+        createdAt: '2026-09-13T12:00:00.000Z',
+      }),
+    });
+  });
+  await page.goto('/operator');
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Connect wallet' })
+    .click();
+  await page.getByRole('button', { name: /Playwright Wallet/ }).click();
+  await page.getByRole('button', { name: 'Close wallet dialog' }).click();
+  await page.getByRole('button', { name: /Onboard machine/ }).click();
+  await page.getByLabel('Permanent machine label').fill('fleet.loader.042');
+  await page.getByLabel('Display name').fill('Autonomous Wheel Loader');
+  await page.getByLabel('Category').fill('Construction');
+  await page.getByLabel('City').fill('Lagos');
+  await page.getByLabel('Country').fill('Nigeria');
+  await page.getByLabel('Site / bay').fill('Lekki Yard · Bay 2');
+  await page.getByLabel('Tariff (token units / second)').fill('2500');
+  await page
+    .getByLabel('Description')
+    .fill('A proof-gated wheel loader for a construction site.');
+
+  await page
+    .getByRole('button', { name: /Upload metadata and lock commitment/ })
+    .click();
+  await expect(
+    page.getByText('Metadata storage is temporarily unavailable.'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Build verifiable metadata' }),
+  ).toBeVisible();
+
+  await page
+    .getByRole('button', { name: /Upload metadata and lock commitment/ })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Register the machine identity' }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Register the machine identity' }),
+  ).toBeVisible();
+  await page.evaluate(() =>
+    localStorage.setItem('reject-next-transaction', 'yes'),
+  );
+  await page.getByRole('button', { name: /Confirm CC3 registration/ }).click();
+  await expect(
+    page.getByText('Wallet request cancelled. Nothing was charged.'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Register the machine identity' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /Confirm CC3 registration/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Synchronize the rental offer' }),
+  ).toBeVisible({ timeout: 15_000 });
+  await page
+    .getByRole('button', { name: /Publish synchronized offer/ })
+    .click();
+  await expect(page.getByText('ONBOARDING COMPLETE')).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 async function mockMarketplaceRpc(page: Page, includeUsage = false) {
@@ -224,9 +319,11 @@ function rpcResult(
         true,
       ]);
     else if (target.endsWith('01'))
-      result = paymentInterface.encodeFunctionResult('paymentToken', [
-        tokenAddress,
-      ]);
+      result = call.data.startsWith(
+        paymentInterface.getFunction('owner')!.selector,
+      )
+        ? paymentInterface.encodeFunctionResult('owner', [owner])
+        : paymentInterface.encodeFunctionResult('paymentToken', [tokenAddress]);
     else if (
       call.data.startsWith(tokenInterface.getFunction('decimals')!.selector)
     )
@@ -407,9 +504,18 @@ async function installWallet(page: Page) {
     ({ approvedAccount }) => {
       type Listener = (...arguments_: unknown[]) => void;
       const listeners = new Map<string, Set<Listener>>();
+      let chainId = '0xaa36a7';
+      let transactionCount = 0;
+      const transactions = new Map<string, Record<string, unknown>>();
       const provider = {
-        request: async ({ method }: { method: string }) => {
-          if (method === 'eth_chainId') return '0xaa36a7';
+        request: async ({
+          method,
+          params,
+        }: {
+          method: string;
+          params?: unknown[];
+        }) => {
+          if (method === 'eth_chainId') return chainId;
           if (method === 'eth_accounts')
             return localStorage.getItem('approved') ? [approvedAccount] : [];
           if (method === 'eth_requestAccounts') {
@@ -421,6 +527,81 @@ async function installWallet(page: Page) {
             );
             return [approvedAccount];
           }
+          if (method === 'wallet_switchEthereumChain') {
+            chainId = (params?.[0] as { chainId: string }).chainId;
+            queueMicrotask(() =>
+              listeners
+                .get('chainChanged')
+                ?.forEach((listener) => listener(chainId)),
+            );
+            return null;
+          }
+          if (method === 'wallet_addEthereumChain') {
+            chainId = (params?.[0] as { chainId: string }).chainId;
+            return null;
+          }
+          if (method === 'eth_sendTransaction') {
+            if (localStorage.getItem('reject-next-transaction')) {
+              localStorage.removeItem('reject-next-transaction');
+              throw Object.assign(new Error('User rejected request'), {
+                code: 4001,
+              });
+            }
+            transactionCount += 1;
+            const hash = `0x${transactionCount.toString(16).padStart(64, '0')}`;
+            const request = (params?.[0] ?? {}) as Record<string, unknown>;
+            transactions.set(hash, request);
+            return hash;
+          }
+          if (method === 'eth_getTransactionByHash') {
+            const hash = params?.[0] as string;
+            const transaction = transactions.get(hash);
+            if (!transaction) return null;
+            return {
+              hash,
+              blockHash: `0x${'91'.repeat(32)}`,
+              blockNumber: '0x1',
+              transactionIndex: '0x0',
+              from: approvedAccount,
+              to: transaction.to,
+              input: transaction.data ?? '0x',
+              value: transaction.value ?? '0x0',
+              nonce: '0x0',
+              gas: '0x7a120',
+              gasPrice: '0x1',
+              type: '0x0',
+              chainId,
+              v: '0x1b',
+              r: `0x${'01'.repeat(32)}`,
+              s: `0x${'02'.repeat(32)}`,
+            };
+          }
+          if (method === 'eth_getTransactionReceipt') {
+            const hash = params?.[0] as string;
+            const transaction = transactions.get(hash);
+            if (!transaction) return null;
+            return {
+              transactionHash: hash,
+              transactionIndex: '0x0',
+              blockHash: `0x${'91'.repeat(32)}`,
+              blockNumber: '0x1',
+              from: approvedAccount,
+              to: transaction.to,
+              cumulativeGasUsed: '0x5208',
+              gasUsed: '0x5208',
+              contractAddress: null,
+              logs: [],
+              logsBloom: `0x${'00'.repeat(256)}`,
+              status: '0x1',
+              effectiveGasPrice: '0x1',
+              type: '0x0',
+            };
+          }
+          if (method === 'eth_blockNumber') return '0x2';
+          if (method === 'eth_getTransactionCount') return '0x0';
+          if (method === 'eth_estimateGas') return '0x7a120';
+          if (method === 'eth_gasPrice') return '0x1';
+          if (method === 'eth_maxPriorityFeePerGas') return '0x1';
           throw Object.assign(
             new Error(`Unsupported wallet method: ${method}`),
             { code: 4200 },

@@ -5,7 +5,11 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { createRelayHttpServer, type RelayHttpOptions } from './http.js';
 import type { JobQueue } from './queue.js';
-import type { RelayJob, RelayReadiness } from './types.js';
+import type {
+  RelayJob,
+  RelayReadiness,
+  StoredMachineMetadata,
+} from './types.js';
 
 const hash = `0x${'ab'.repeat(32)}`;
 const origin = 'https://proofkey.vercel.app';
@@ -32,6 +36,7 @@ const ready: RelayReadiness = {
   },
 };
 
+let storedMetadata: StoredMachineMetadata | undefined;
 const queue: JobQueue = {
   enqueue: async (transactionHash) => ({
     ...job,
@@ -44,6 +49,17 @@ const queue: JobQueue = {
   find: async (identifier) =>
     identifier.toLowerCase() === hash
       ? { ...job, phase: 'proof_generation' }
+      : undefined,
+  putMetadata: async (metadata) => {
+    storedMetadata = metadata;
+  },
+  getMetadataByDigest: async (digest) =>
+    storedMetadata?.contentDigest.toLowerCase() === digest.toLowerCase()
+      ? storedMetadata
+      : undefined,
+  getMetadataByCommitment: async (commitment) =>
+    storedMetadata?.commitment.toLowerCase() === commitment.toLowerCase()
+      ? storedMetadata
       : undefined,
 };
 
@@ -148,4 +164,52 @@ test('returns 503 readiness while keeping liveness healthy', async (context) => 
   const { url } = await start(context, { readiness: async () => degraded });
   assert.equal((await fetch(`${url}/health`)).status, 200);
   assert.equal((await fetch(`${url}/ready`)).status, 503);
+});
+
+test('stores immutable public machine metadata and resolves its commitment', async (context) => {
+  storedMetadata = undefined;
+  const { url } = await start(context);
+  const uploaded = await fetch(`${url}/metadata`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify({
+      document: {
+        name: 'Autonomous Loader',
+        description: 'Proof-gated loading equipment.',
+        category: 'Construction',
+      },
+    }),
+  });
+  assert.equal(uploaded.status, 201);
+  const record = (await uploaded.json()) as StoredMachineMetadata;
+  assert.match(record.contentDigest, /^0x[0-9a-f]{64}$/);
+  assert.match(record.commitment, /^0x[0-9a-f]{64}$/);
+  assert.equal(record.uri, `${url}/metadata/${record.contentDigest}`);
+
+  const content = await fetch(record.uri);
+  assert.equal(content.status, 200);
+  assert.equal((await content.json()).name, 'Autonomous Loader');
+  assert.match(content.headers.get('cache-control') ?? '', /immutable/);
+
+  const byCommitment = await fetch(
+    `${url}/metadata/commitments/${record.commitment}`,
+  );
+  assert.equal(byCommitment.status, 200);
+  assert.equal((await byCommitment.json()).uri, record.uri);
+});
+
+test('rejects secret-bearing metadata before durable storage', async (context) => {
+  storedMetadata = undefined;
+  const { url } = await start(context);
+  const response = await fetch(`${url}/metadata`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify({ document: { name: 'Loader', privateKey: 'nope' } }),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(
+    ((await response.json()) as { error: { code: string } }).error.code,
+    'INVALID_METADATA',
+  );
+  assert.equal(storedMetadata, undefined);
 });

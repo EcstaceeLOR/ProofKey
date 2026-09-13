@@ -25,6 +25,8 @@
     "src/activity.ts",
     "src/activity.test.ts",
     "src/proof.ts",
-    "src/proof.test.ts"
+    "src/proof.test.ts",
+    "src/operator.ts",
+    "src/operator.test.ts"
   ]
 }

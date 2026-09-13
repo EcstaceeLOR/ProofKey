@@ -85,6 +85,24 @@ test('deterministic replay applies updates by chain position and rejects invalid
   assert.equal(listing?.status, 'metadata-invalid');
 });
 
+test('active-state drift keeps a machine out of the rentable inventory', () => {
+  const inactive = {
+    ...recordedSepoliaOffer,
+    data: `${recordedSepoliaOffer.data.slice(0, -1)}0`,
+  };
+  const [listing] = reconcileMarketplace(
+    replayMachineLogs([recordedCc3Registration]),
+    replayOfferLogs([inactive]),
+    {
+      address: '0x0000000000000000000000000000000000000001',
+      decimals: 6,
+      symbol: 'USDC',
+    },
+  );
+  assert.equal(listing?.synchronized, false);
+  assert.equal(listing?.status, 'unsynchronized');
+});
+
 test('filters, sorts, and paginates marketplace results', () => {
   const listings = reconcileMarketplace(
     replayMachineLogs([recordedCc3Registration]),

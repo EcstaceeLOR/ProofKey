@@ -46,3 +46,27 @@ const metadataByUri = new Map<string, MachineMetadata>([
 export function allMachineMetadata() {
   return [...metadataByUri.values()];
 }
+
+export function isMachineMetadata(value: unknown): value is MachineMetadata {
+  const item = value as Partial<MachineMetadata> | undefined;
+  return Boolean(
+    item &&
+    typeof item.uri === 'string' &&
+    typeof item.name === 'string' &&
+    typeof item.description === 'string' &&
+    typeof item.image === 'string' &&
+    typeof item.category === 'string' &&
+    item.location &&
+    typeof item.location.city === 'string' &&
+    typeof item.location.country === 'string' &&
+    typeof item.location.site === 'string' &&
+    Array.isArray(item.capabilities) &&
+    item.capabilities.every((entry) => typeof entry === 'string') &&
+    Array.isArray(item.safetyRequirements) &&
+    item.safetyRequirements.every((entry) => typeof entry === 'string') &&
+    item.operator &&
+    typeof item.operator.name === 'string' &&
+    typeof item.operator.wallet === 'string' &&
+    typeof item.operator.verified === 'boolean',
+  );
+}

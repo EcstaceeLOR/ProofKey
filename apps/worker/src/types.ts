@@ -81,6 +81,14 @@ export interface PublicProofEvidence {
   };
 }
 
+export interface StoredMachineMetadata {
+  contentDigest: string;
+  commitment: string;
+  uri: string;
+  document: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface RelayFailure {
   code: string;
   message: string;
@@ -104,6 +112,13 @@ export interface JobStore {
 export interface DurableJobStore extends JobStore {
   create(job: RelayJob): Promise<{ job: RelayJob; created: boolean }>;
   find(identifier: string): Promise<RelayJob | undefined>;
+  putMetadata(metadata: StoredMachineMetadata): Promise<void>;
+  getMetadataByDigest(
+    contentDigest: string,
+  ): Promise<StoredMachineMetadata | undefined>;
+  getMetadataByCommitment(
+    commitment: string,
+  ): Promise<StoredMachineMetadata | undefined>;
   claimNext(
     ownerId: string,
     leaseDurationMs: number,
