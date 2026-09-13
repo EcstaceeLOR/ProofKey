@@ -4,7 +4,7 @@
 
 ProofKey lets a customer pay for machine time on Ethereum Sepolia and unlocks a non-transferable access credential on Creditcoin. Attestcoin proves the source transaction to Creditcoin without bridging assets or trusting the relay worker.
 
-**Status:** live testnet Product V1 · 143 automated checks · verified Sepolia-to-Creditcoin flow
+**Status:** live testnet Product V1 · 147 automated checks · five synchronized machines · verified Sepolia-to-Creditcoin flow
 
 [Launch ProofKey](https://proofkey.vercel.app) · [View the Sepolia payment](https://sepolia.etherscan.io/tx/0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967) · [View the Creditcoin authorization](https://creditcoin-testnet.blockscout.com/tx/0x45313262557698e745662272a1da814b74bcebb65b39990b44603c78cca64510)
 
@@ -120,6 +120,8 @@ Live identifiers:
 
 The secret-free deployment record is in [`packages/contracts/deployments/live-mvp.json`](packages/contracts/deployments/live-mvp.json). [`packages/contracts/fixtures/recorded-live-proof.json`](packages/contracts/fixtures/recorded-live-proof.json) contains the real proof material and is explicitly labeled `recorded-live` / `fresh: false`; it is historical evidence, not a fresh or replayable authorization.
 
+The live catalog contains five synchronized testnet listings across construction, agriculture, energy, logistics, and manufacturing. [`machine-catalog-live.json`](packages/contracts/deployments/machine-catalog-live.json) records their public CC3 identities, Sepolia offers, metadata commitments, and transaction evidence. This proves listing synchronization; it does not claim independent inspection of the represented physical equipment.
+
 All five deployed contracts are fully source-verified on Blockscout using the exact committed Hardhat compiler settings. Re-run `npm run verify:contracts` after compiling to verify the recorded deployments idempotently.
 
 ## Quick start
@@ -144,7 +146,7 @@ The complete local check does not require a funded wallet or private RPC endpoin
 
 ## Run the applications
 
-Set the public `VITE_*` addresses from the committed deployment manifests and provide a Sepolia RPC URL in the ignored root `.env`. Set `VITE_WALLETCONNECT_PROJECT_ID` to a public Reown Cloud project ID to enable mobile QR connections. Live relaying also requires PostgreSQL through `DATABASE_URL`, plus `WORKER_PRIVATE_KEY`, `SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS`, and `PROOFKEY_ASC_ADDRESS`; the required fields are documented in `.env.example`. Never place private keys in `VITE_*` variables.
+The browser uses the committed live testnet deployment and reviewed public RPC endpoints by default, so a Vercel build cannot become unusable because an optional public variable is absent. Public `VITE_*` values can override those defaults. Set `VITE_WALLETCONNECT_PROJECT_ID` to a public Reown Cloud project ID to enable mobile QR connections. Live relaying also requires PostgreSQL through `DATABASE_URL`, plus `WORKER_PRIVATE_KEY`, `SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS`, and `PROOFKEY_ASC_ADDRESS`; the required fields are documented in `.env.example`. Never place private keys in `VITE_*` variables.
 
 Start each application in a separate terminal:
 
@@ -193,12 +195,14 @@ The gate runs formatting, TypeScript checks, all automated tests, Solidity compi
 | ---------------- | ------: | ------------------------------------------------------------------------------------------------------ |
 | Solidity         |      52 | Receipt semantics, proof tampering, replay, authorization, pricing, ownership, expiry, reentrancy      |
 | Relay worker     |      23 | Leases, restart recovery, one-time handoffs, receipt signatures, CORS, readiness, secret-safe evidence |
-| Customer web     |      51 | Proof state, exact token math, operator workflow, diagnostics, privacy-safe telemetry, and sessions    |
-| Product browser  |      11 | Multi-page rental, wallets, proof, QR handoff, accessibility, payment, and recovery journeys           |
+| Customer web     |      54 | Proof state, exact token math, catalog search, defaults, diagnostics, privacy-safe telemetry, sessions |
+| Product browser  |      12 | Multi-machine rental, wallets, proof, QR handoff, accessibility, payment, and recovery journeys        |
 | Device simulator |       6 | Locked/unlocking/unlocked/expired states, tampered results, RPC failure                                |
-| **Total**        | **143** |                                                                                                        |
+| **Total**        | **147** |                                                                                                        |
 
 The Solidity suite uses explicit verifier doubles at `0x0FD2` to isolate adversarial proof cases. Those tests are distinct from the committed live CC3 transaction, which executed against Creditcoin's real Native Query Verifier.
+
+The operator can add machines through `/operator`. For reproducible testnet catalog maintenance, the deployment owner can run `npm run seed:marketplace`; the command is idempotent, never writes secrets, and verifies owner, controller, metadata, tariff, active state, and payment offer on both chains before updating the public deployment record.
 
 ### Production readiness
 

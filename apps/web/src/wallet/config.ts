@@ -4,6 +4,7 @@ import { createConfig, http } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
 import { coinbaseWallet, injected } from 'wagmi/connectors';
 import { defineChain } from 'viem';
+import { liveTestnetConfig } from '../live-config.js';
 
 export const creditcoinTestnet = defineChain({
   id: 102031,
@@ -13,7 +14,7 @@ export const creditcoinTestnet = defineChain({
     default: {
       http: [
         import.meta.env.VITE_CREDITCOIN_RPC_URL?.trim() ||
-          'https://rpc.cc3-testnet.creditcoin.network',
+          liveTestnetConfig.creditcoinRpcUrl,
       ],
     },
   },
@@ -40,10 +41,12 @@ const connectors = [
 ] as const;
 const transports = {
   [sepolia.id]: http(
-    import.meta.env.VITE_ETHEREUM_SEPOLIA_RPC_URL?.trim() || undefined,
+    import.meta.env.VITE_ETHEREUM_SEPOLIA_RPC_URL?.trim() ||
+      liveTestnetConfig.sepoliaRpcUrl,
   ),
   [creditcoinTestnet.id]: http(
-    import.meta.env.VITE_CREDITCOIN_RPC_URL?.trim() || undefined,
+    import.meta.env.VITE_CREDITCOIN_RPC_URL?.trim() ||
+      liveTestnetConfig.creditcoinRpcUrl,
   ),
 };
 

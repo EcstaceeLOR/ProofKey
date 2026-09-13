@@ -1,0 +1,139 @@
+[
+  {
+    "label": "proofkey.excavator.001",
+    "tariff": "2500",
+    "uri": "ipfs://proofkey/excavator/001",
+    "name": "Industrial Excavator",
+    "description": "A proof-gated hydraulic excavator for earthmoving and site preparation.",
+    "image": "excavator",
+    "category": "Construction",
+    "location": {
+      "city": "Lagos",
+      "country": "Nigeria",
+      "site": "Demo Yard · Bay 04"
+    },
+    "capabilities": [
+      "22-ton operating capacity",
+      "GPS telemetry",
+      "Remote access controller"
+    ],
+    "safetyRequirements": [
+      "Verified operator briefing",
+      "Hard hat and high-visibility vest"
+    ],
+    "operator": {
+      "name": "ProofKey Industrial",
+      "wallet": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "verified": true
+    }
+  },
+  {
+    "label": "proofkey.tractor.001",
+    "tariff": "1800",
+    "uri": "ipfs://proofkey/tractor/001",
+    "name": "Autonomous Field Tractor",
+    "description": "A GPS-guided agricultural tractor for precision tilling, seeding, and field preparation.",
+    "image": "tractor",
+    "category": "Agriculture",
+    "location": {
+      "city": "Ibadan",
+      "country": "Nigeria",
+      "site": "AgriTech Field · Plot 12"
+    },
+    "capabilities": [
+      "RTK-guided navigation",
+      "120 horsepower",
+      "Precision implement control"
+    ],
+    "safetyRequirements": ["Geofenced operating zone", "Remote stop briefing"],
+    "operator": {
+      "name": "ProofKey Industrial",
+      "wallet": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "verified": true
+    }
+  },
+  {
+    "label": "proofkey.energy.001",
+    "tariff": "3200",
+    "uri": "ipfs://proofkey/energy/001",
+    "name": "Mobile Solar Power Unit",
+    "description": "A towable solar and battery system delivering metered off-grid power to worksites and events.",
+    "image": "energy",
+    "category": "Energy",
+    "location": {
+      "city": "Abuja",
+      "country": "Nigeria",
+      "site": "Green Energy Hub · Dock 03"
+    },
+    "capabilities": [
+      "60 kWh battery storage",
+      "12 kW solar input",
+      "Remote load telemetry"
+    ],
+    "safetyRequirements": [
+      "Qualified electrical operator",
+      "Dry and ventilated placement"
+    ],
+    "operator": {
+      "name": "ProofKey Industrial",
+      "wallet": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "verified": true
+    }
+  },
+  {
+    "label": "proofkey.coldchain.001",
+    "tariff": "1400",
+    "uri": "ipfs://proofkey/coldchain/001",
+    "name": "Refrigerated Cargo Pod",
+    "description": "A sensor-rich cold-chain container for temperature-controlled food and medicine storage.",
+    "image": "coldchain",
+    "category": "Logistics",
+    "location": {
+      "city": "Accra",
+      "country": "Ghana",
+      "site": "Trade Depot · Cold Bay 07"
+    },
+    "capabilities": [
+      "-20°C to 10°C setpoint",
+      "Continuous temperature log",
+      "Door and power telemetry"
+    ],
+    "safetyRequirements": [
+      "Approved cargo manifest",
+      "Vent clearance inspection"
+    ],
+    "operator": {
+      "name": "ProofKey Industrial",
+      "wallet": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "verified": true
+    }
+  },
+  {
+    "label": "proofkey.cnc.001",
+    "tariff": "4100",
+    "uri": "ipfs://proofkey/cnc/001",
+    "name": "Precision CNC Milling Cell",
+    "description": "A networked five-axis milling cell for short-run metal parts and verified machine time.",
+    "image": "cnc",
+    "category": "Manufacturing",
+    "location": {
+      "city": "Nairobi",
+      "country": "Kenya",
+      "site": "Maker District · Cell 05"
+    },
+    "capabilities": [
+      "Five-axis machining",
+      "Automatic tool changer",
+      "Usage and spindle telemetry"
+    ],
+    "safetyRequirements": [
+      "CAM program review",
+      "Machine enclosure inspection"
+    ],
+    "operator": {
+      "name": "ProofKey Industrial",
+      "wallet": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "verified": true
+    }
+  }
+]

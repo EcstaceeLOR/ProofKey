@@ -107,7 +107,7 @@ export function Component() {
         <ArrowLeft size={15} /> Explore machines
       </Link>
       <section className="machine-detail-hero">
-        <MachineArtwork />
+        <MachineArtwork variant={metadata?.image} />
         <div className="machine-detail-copy">
           <div className="card-topline">
             <span className={available ? 'status available' : 'status'}>

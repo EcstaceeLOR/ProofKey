@@ -35,6 +35,19 @@ test('deployed product routes, assets, wallet modal, and relay are live', async 
   ).toBeVisible();
   await page.keyboard.press('Escape');
 
+  const explore = await page.goto('/explore', {
+    waitUntil: 'domcontentloaded',
+  });
+  expect(explore?.status()).toBe(200);
+  await expect(page.locator('.catalog-card')).toHaveCount(5);
+  await page
+    .getByPlaceholder('Search machine, capability or location')
+    .fill('solar power Abuja');
+  await expect(page.locator('.catalog-card')).toHaveCount(1);
+  await expect(
+    page.getByRole('heading', { name: 'Mobile Solar Power Unit' }),
+  ).toBeVisible();
+
   const machine = await page.goto(`/machines/${machineId}`, {
     waitUntil: 'domcontentloaded',
   });
@@ -51,9 +64,22 @@ test('deployed product routes, assets, wallet modal, and relay are live', async 
     page.locator('main h1, main [role="alert"] h2').first(),
   ).toBeVisible();
 
+  const diagnostics = await page.goto('/diagnostics', {
+    waitUntil: 'domcontentloaded',
+  });
+  expect(diagnostics?.status()).toBe(200);
+  await expect(
+    page.getByRole('heading', { name: 'All systems ready' }),
+  ).toBeVisible();
+
   const health = await request.get(`${relayUrl}/health`, { timeout: 60_000 });
   expect(health.status()).toBe(200);
   expect((await health.json()).status).toBe('alive');
+  const readiness = await request.get(`${relayUrl}/ready`, {
+    timeout: 60_000,
+  });
+  expect(readiness.status()).toBe(200);
+  expect((await readiness.json()).status).toBe('ready');
   expect(failedAssets).toEqual([]);
 
   const firstContentfulPaint = await page.evaluate(

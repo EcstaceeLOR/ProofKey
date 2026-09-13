@@ -21,6 +21,7 @@
     "format": "prettier --write .",
     "live:mvp": "npm run live:mvp --workspace @proofkey/worker",
     "live:verify": "npm run live:verify --workspace @proofkey/worker",
+    "seed:marketplace": "npm run seed:marketplace --workspace @proofkey/worker",
     "lint": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
     "test:contracts": "npm run test --workspace @proofkey/contracts",

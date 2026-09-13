@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { keccak256, toUtf8Bytes } from 'ethers';
+import { allCatalogMachines } from './machine-metadata.js';
 import {
   filterMarketplace,
   machineRegistryEvents,
@@ -125,4 +127,65 @@ test('filters, sorts, and paginates marketplace results', () => {
   assert.equal(result.total, 1);
   assert.equal(result.items[0]?.machineId, machineId);
   assert.equal(result.totalPages, 1);
+});
+
+test('diverse committed machines reconcile into a searchable catalog', () => {
+  const catalog = allCatalogMachines();
+  assert.equal(catalog.length, 5);
+  assert.equal(new Set(catalog.map(({ category }) => category)).size, 5);
+  const machines = new Map(
+    catalog.map((metadata, index) => {
+      const id = keccak256(toUtf8Bytes(metadata.label));
+      return [
+        id,
+        {
+          machineId: id,
+          owner: '0x1114eeaFEB92B71bABf860E64e4575433a734B6A',
+          controller: '0x1114eeaFEB92B71bABf860E64e4575433a734B6A',
+          metadataHash: keccak256(toUtf8Bytes(metadata.uri)),
+          tariff: BigInt(metadata.tariff),
+          active: true,
+          registeredAtBlock: 100 + index,
+          updatedAtBlock: 100 + index,
+        },
+      ] as const;
+    }),
+  );
+  const offers = new Map(
+    [...machines.values()].map((machine) => [
+      machine.machineId,
+      {
+        machineId: machine.machineId,
+        beneficiary: machine.owner,
+        pricePerSecond: machine.tariff,
+        active: true,
+        updatedAtBlock: 200,
+      },
+    ]),
+  );
+  const listings = reconcileMarketplace(
+    machines,
+    offers,
+    {
+      address: '0x0000000000000000000000000000000000000001',
+      decimals: 6,
+      symbol: 'USDC',
+    },
+    catalog,
+  );
+  assert.equal(
+    listings.every(({ status }) => status === 'available'),
+    true,
+  );
+  const result = filterMarketplace(listings, {
+    query: 'solar power Abuja',
+    category: 'Energy',
+    location: 'Abuja',
+    availability: 'available',
+    sort: 'availability',
+    page: 1,
+    pageSize: 6,
+  });
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0]?.metadata?.name, 'Mobile Solar Power Unit');
 });

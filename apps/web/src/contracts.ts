@@ -10,6 +10,7 @@ import {
   randomBytes,
   type Eip1193Provider,
 } from 'ethers';
+import { liveTestnetConfig } from './live-config.js';
 import { totalForDuration } from './flow.js';
 import { normalizeProofWorkerUrl } from './worker.js';
 
@@ -100,15 +101,22 @@ export type PaymentUpdate =
 
 export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
   const config: AppConfig = {
-    sepoliaRpcUrl: environment.VITE_ETHEREUM_SEPOLIA_RPC_URL?.trim() ?? '',
-    creditcoinRpcUrl: environment.VITE_CREDITCOIN_RPC_URL?.trim() ?? '',
+    sepoliaRpcUrl:
+      environment.VITE_ETHEREUM_SEPOLIA_RPC_URL?.trim() ||
+      liveTestnetConfig.sepoliaRpcUrl,
+    creditcoinRpcUrl:
+      environment.VITE_CREDITCOIN_RPC_URL?.trim() ||
+      liveTestnetConfig.creditcoinRpcUrl,
     registryAddress:
-      environment.VITE_USAGE_PAYMENT_REGISTRY_ADDRESS?.trim() ?? '',
+      environment.VITE_USAGE_PAYMENT_REGISTRY_ADDRESS?.trim() ||
+      liveTestnetConfig.usagePaymentRegistryAddress,
     machineRegistryAddress:
-      environment.VITE_MACHINE_REGISTRY_ADDRESS?.trim() ?? '',
-    machineId: environment.VITE_DEMO_MACHINE_ID?.trim() ?? '',
+      environment.VITE_MACHINE_REGISTRY_ADDRESS?.trim() ||
+      liveTestnetConfig.machineRegistryAddress,
+    machineId:
+      environment.VITE_DEMO_MACHINE_ID?.trim() || liveTestnetConfig.machineId,
     workerUrl: normalizeProofWorkerUrl(
-      environment.VITE_PROOF_WORKER_URL,
+      environment.VITE_PROOF_WORKER_URL?.trim() || liveTestnetConfig.workerUrl,
       environment.PROD,
     ),
     sepoliaExplorerUrl: (
@@ -123,21 +131,21 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
       environment.VITE_DEMO_MACHINE_LOCATION ?? 'Lagos Demo Yard · Bay 04',
     creditcoinRegistryDeploymentBlock: parseDeploymentBlock(
       environment.VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK,
-      5_476_972,
+      liveTestnetConfig.machineRegistryDeploymentBlock,
     ),
     sepoliaRegistryDeploymentBlock: parseDeploymentBlock(
       environment.VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK,
-      11_691_302,
+      liveTestnetConfig.usagePaymentRegistryDeploymentBlock,
     ),
     accessPassAddress:
-      environment.VITE_ACCESS_PASS_ADDRESS?.trim() ??
-      '0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA',
+      environment.VITE_ACCESS_PASS_ADDRESS?.trim() ||
+      liveTestnetConfig.accessPassAddress,
     proofKeyAscAddress:
-      environment.VITE_PROOFKEY_ASC_ADDRESS?.trim() ??
-      '0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7',
+      environment.VITE_PROOFKEY_ASC_ADDRESS?.trim() ||
+      liveTestnetConfig.proofKeyAscAddress,
     proofKeyAscDeploymentBlock: parseDeploymentBlock(
       environment.VITE_PROOFKEY_ASC_DEPLOYMENT_BLOCK,
-      5_476_974,
+      liveTestnetConfig.proofKeyAscDeploymentBlock,
     ),
   };
   if (!config.sepoliaRpcUrl)

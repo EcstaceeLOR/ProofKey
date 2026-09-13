@@ -1,0 +1,113 @@
+{
+  "provenance": {
+    "kind": "live-testnet-catalog",
+    "note": "Public machine identity and synchronization evidence only; no secret material."
+  },
+  "verifiedAt": "2026-09-13T20:13:22.429Z",
+  "owner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+  "networks": {
+    "creditcoin": 102031,
+    "sepolia": 11155111
+  },
+  "machines": [
+    {
+      "label": "proofkey.excavator.001",
+      "name": "Industrial Excavator",
+      "machineId": "0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc",
+      "metadataUri": "ipfs://proofkey/excavator/001",
+      "metadataHash": "0x24f58d3fcaa80aa0cbe4c88b0ce7d4a23312fa95ca201300a7313894970e883e",
+      "tariff": "2500",
+      "owner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "active": true,
+      "updates": []
+    },
+    {
+      "label": "proofkey.tractor.001",
+      "name": "Autonomous Field Tractor",
+      "machineId": "0x4d673d80ca7d15bb870d8df7397e3faac88f60b2a918beb5c215e5cc1a8aff0c",
+      "metadataUri": "ipfs://proofkey/tractor/001",
+      "metadataHash": "0xff85fc745528ac9c10083098d766792ced398c012a4892b86ccbf00e79eccd3a",
+      "tariff": "1800",
+      "owner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "active": true,
+      "updates": [
+        {
+          "action": "creditcoin:register",
+          "transactionHash": "0x140a6598169755a984a85c0885f39dc26a3878b59bea78f6a2400cc59eb0799f",
+          "blockNumber": 5482431
+        },
+        {
+          "action": "sepolia:offer",
+          "transactionHash": "0x29e31c180c2fde8a959f7ff926d49ca5b143528c3074e7ee456b57c3219e8265",
+          "blockNumber": 11697952
+        }
+      ]
+    },
+    {
+      "label": "proofkey.energy.001",
+      "name": "Mobile Solar Power Unit",
+      "machineId": "0x8dbcb34d2311b1fd5d86e56650dc2c71daa7f194d3bb1e8f798e108cbef2611f",
+      "metadataUri": "ipfs://proofkey/energy/001",
+      "metadataHash": "0xea6041cc1b15985e03bb886760429c739a0a62867e33d72f7b05fe3a0fa6f9a6",
+      "tariff": "3200",
+      "owner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "active": true,
+      "updates": [
+        {
+          "action": "creditcoin:register",
+          "transactionHash": "0x1fa7f6acfb9e0d815870076163f42ed70bcd7008eadee3fa7157b385c713e002",
+          "blockNumber": 5482433
+        },
+        {
+          "action": "sepolia:offer",
+          "transactionHash": "0x7404ffb1653587505f7c0b5fd173a58ef84fb26e8b4ebe753303bee430e45963",
+          "blockNumber": 11697955
+        }
+      ]
+    },
+    {
+      "label": "proofkey.coldchain.001",
+      "name": "Refrigerated Cargo Pod",
+      "machineId": "0xdc40bf68b56301609cebb894644c36d415df694098cde5e435f00398df4af53b",
+      "metadataUri": "ipfs://proofkey/coldchain/001",
+      "metadataHash": "0xfec650583b0f2a52a4b2fb82b684f48aa34231b55ce2db4c607c81cbd3c69af7",
+      "tariff": "1400",
+      "owner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "active": true,
+      "updates": [
+        {
+          "action": "creditcoin:register",
+          "transactionHash": "0x16c0f1bef2eb9ade0977358b3f25b790f497a06485d7b290e7191a1cbbeb9fba",
+          "blockNumber": 5482435
+        },
+        {
+          "action": "sepolia:offer",
+          "transactionHash": "0xeee447b5c47d08ea0efd049e39b76741c823c59eac905c0129e88c74e0033ab1",
+          "blockNumber": 11697957
+        }
+      ]
+    },
+    {
+      "label": "proofkey.cnc.001",
+      "name": "Precision CNC Milling Cell",
+      "machineId": "0xb3c404059df1545ade309532a431b2d826296994c1670f9a14a0c5959d271a25",
+      "metadataUri": "ipfs://proofkey/cnc/001",
+      "metadataHash": "0xf11e2437777ff8a23462d1b4a170d8c0bf57e98163952c3d3607f3e8bd1e304c",
+      "tariff": "4100",
+      "owner": "0x1114eeaFEB92B71bABf860E64e4575433a734B6A",
+      "active": true,
+      "updates": [
+        {
+          "action": "creditcoin:register",
+          "transactionHash": "0x52627fde773a3b472e6562a8f14f1665f6a3f4b429b92eb5da8810193ddf09ba",
+          "blockNumber": 5482437
+        },
+        {
+          "action": "sepolia:offer",
+          "transactionHash": "0xd22b9e29b54ac4c7f87e21091e84f9d931f4e5ff2109f3d23845d3d13b35ec01",
+          "blockNumber": 11697960
+        }
+      ]
+    }
+  ]
+}

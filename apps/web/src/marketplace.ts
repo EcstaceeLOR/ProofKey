@@ -214,7 +214,11 @@ export function filterMarketplace(
   machines: readonly MarketplaceMachine[],
   filters: MarketplaceFilters,
 ) {
-  const needle = filters.query.trim().toLowerCase();
+  const needles = filters.query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
   const matching = machines.filter((machine) => {
     const metadata = machine.metadata;
     const searchable = [
@@ -230,7 +234,8 @@ export function filterMarketplace(
       .join(' ')
       .toLowerCase();
     return (
-      (!needle || searchable.includes(needle)) &&
+      (needles.length === 0 ||
+        needles.every((needle) => searchable.includes(needle))) &&
       (!filters.category || metadata?.category === filters.category) &&
       (!filters.location || metadata?.location.city === filters.location) &&
       (!filters.availability || machine.status === filters.availability)
