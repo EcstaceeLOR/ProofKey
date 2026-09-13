@@ -14,6 +14,9 @@
     "src/wallet/state.ts",
     "src/wallet/state.test.ts",
     "src/worker.ts",
-    "src/worker.test.ts"
+    "src/worker.test.ts",
+    "src/marketplace.ts",
+    "src/marketplace.test.ts",
+    "src/machine-metadata.ts"
   ]
 }

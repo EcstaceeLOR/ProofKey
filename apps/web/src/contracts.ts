@@ -43,6 +43,8 @@ export interface AppConfig {
   deviceUrl: string;
   machineName: string;
   machineLocation: string;
+  creditcoinRegistryDeploymentBlock: number;
+  sepoliaRegistryDeploymentBlock: number;
 }
 
 export interface MachineOffer {
@@ -89,6 +91,14 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
     machineName: environment.VITE_DEMO_MACHINE_NAME ?? 'Industrial Excavator',
     machineLocation:
       environment.VITE_DEMO_MACHINE_LOCATION ?? 'Lagos Demo Yard · Bay 04',
+    creditcoinRegistryDeploymentBlock: parseDeploymentBlock(
+      environment.VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK,
+      5_476_972,
+    ),
+    sepoliaRegistryDeploymentBlock: parseDeploymentBlock(
+      environment.VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK,
+      11_691_302,
+    ),
   };
   if (!config.sepoliaRpcUrl)
     throw new Error('Set VITE_ETHEREUM_SEPOLIA_RPC_URL to load the machine.');
@@ -107,6 +117,13 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
     registryAddress: getAddress(config.registryAddress),
     machineRegistryAddress: getAddress(config.machineRegistryAddress),
   };
+}
+
+function parseDeploymentBlock(value: string | undefined, fallback: number) {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isSafeInteger(parsed) || parsed < 0)
+    throw new Error('Registry deployment blocks must be positive integers.');
+  return parsed;
 }
 
 export class PaymentClient {

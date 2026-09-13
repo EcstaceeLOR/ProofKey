@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "dev": "vite --host 0.0.0.0",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/flow.test.js dist-test/product.test.js dist-test/wallet/state.test.js dist-test/worker.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/flow.test.js dist-test/product.test.js dist-test/wallet/state.test.js dist-test/worker.test.js dist-test/marketplace.test.js",
     "test:e2e": "playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

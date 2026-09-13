@@ -30,4 +30,6 @@ interface ImportMetaEnv {
   readonly VITE_DEVICE_SIMULATOR_URL?: string;
   readonly VITE_DEMO_MACHINE_NAME?: string;
   readonly VITE_DEMO_MACHINE_LOCATION?: string;
+  readonly VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK?: string;
+  readonly VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK?: string;
 }
