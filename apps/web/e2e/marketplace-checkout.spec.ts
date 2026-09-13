@@ -18,6 +18,18 @@ const tokenInterface = new Interface([
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
 ]);
+const usageInterface = new Interface([
+  'event UsagePaid(bytes32 indexed orderId,bytes32 indexed machineId,address indexed payer,address beneficiary,uint64 startTime,uint64 duration,uint256 amount)',
+]);
+const accessInterface = new Interface([
+  'function accessCredentials(bytes32,address) view returns (bytes32 authorizationId,uint64 expiresAt)',
+  'function isAuthorized(bytes32,address) view returns (bool)',
+]);
+const proofInterface = new Interface([
+  'function processedOrders(bytes32) view returns (bool)',
+  'event ProofKeyAccessActivated(bytes32 indexed queryId,bytes32 indexed orderId,bytes32 indexed machineId,address payer,uint64 expiresAt)',
+]);
+const orderId = `0x${'ee'.repeat(32)}`;
 
 test('Explore, machine detail, and checkout form one verified journey', async ({
   page,
@@ -58,7 +70,42 @@ test('checkout fails closed when registry RPC is unavailable', async ({
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
 });
 
-async function mockMarketplaceRpc(page: Page) {
+test('a fresh connected browser recovers active access from chain and relay state', async ({
+  page,
+}) => {
+  await installWallet(page);
+  await mockMarketplaceRpc(page, true);
+  await page.route('https://relay.invalid/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        sourceTransactionHash: `0x${'fa'.repeat(32)}`,
+        phase: 'completed',
+        orderId,
+        machineId,
+        payer: owner,
+        accessExpiresAt: '2500',
+        creditcoinTransactionHash: `0x${'ab'.repeat(32)}`,
+      }),
+    });
+  });
+  await page.goto('/activity');
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Connect wallet' })
+    .click();
+  await page.getByRole('button', { name: /Playwright Wallet/ }).click();
+  await expect(page.getByText('Machine access active')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('link', { name: /Open access/ })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Download receipt JSON' }),
+  ).toBeVisible();
+});
+
+async function mockMarketplaceRpc(page: Page, includeUsage = false) {
   await page.route('https://**.rpc.proofkey.invalid/**', async (route) => {
     const request = route.request();
     const payload = request.postDataJSON() as RpcRequest | RpcRequest[];
@@ -67,7 +114,7 @@ async function mockMarketplaceRpc(page: Page) {
     const responses = requests.map((rpc) => ({
       jsonrpc: '2.0',
       id: rpc.id,
-      result: rpcResult(rpc, isCreditcoin),
+      result: rpcResult(rpc, isCreditcoin, includeUsage),
     }));
     await route.fulfill({
       status: 200,
@@ -83,7 +130,11 @@ interface RpcRequest {
   params?: unknown[];
 }
 
-function rpcResult(rpc: RpcRequest, isCreditcoin: boolean) {
+function rpcResult(
+  rpc: RpcRequest,
+  isCreditcoin: boolean,
+  includeUsage: boolean,
+) {
   let result: unknown;
   if (rpc.method === 'eth_chainId')
     result = isCreditcoin ? '0x18e8f' : '0xaa36a7';
@@ -92,15 +143,40 @@ function rpcResult(rpc: RpcRequest, isCreditcoin: boolean) {
   else if (rpc.method === 'eth_getLogs') {
     const topics = (rpc.params?.[0] as { topics?: unknown[] })?.topics ?? [];
     const isUsageQuery = topics.length > 1 && topics[1] === null;
-    result = isUsageQuery
-      ? []
-      : isCreditcoin
-        ? [cc3Registration()]
-        : [sepoliaOffer()];
+    const firstTopic = Array.isArray(topics[0])
+      ? (topics[0] as string[])[0]
+      : topics[0];
+    result =
+      firstTopic ===
+      proofInterface.getEvent('ProofKeyAccessActivated')!.topicHash
+        ? [activation()]
+        : isUsageQuery
+          ? includeUsage
+            ? [usagePaid()]
+            : []
+          : isCreditcoin
+            ? [cc3Registration()]
+            : [sepoliaOffer()];
+  } else if (rpc.method === 'eth_getBlockByNumber') {
+    result = creditcoinBlock();
   } else if (rpc.method === 'eth_call') {
     const call = rpc.params?.[0] as { to: string; data: string };
     const target = call.to.toLowerCase();
-    if (target.endsWith('02'))
+    if (target.endsWith('05'))
+      result = proofInterface.encodeFunctionResult('processedOrders', [true]);
+    else if (
+      target.endsWith('04') &&
+      call.data.startsWith(
+        accessInterface.getFunction('accessCredentials')!.selector,
+      )
+    )
+      result = accessInterface.encodeFunctionResult('accessCredentials', [
+        orderId,
+        2500,
+      ]);
+    else if (target.endsWith('04'))
+      result = accessInterface.encodeFunctionResult('isAuthorized', [true]);
+    else if (target.endsWith('02'))
       result = machineInterface.encodeFunctionResult('machines', [
         owner,
         owner,
@@ -130,6 +206,120 @@ function rpcResult(rpc: RpcRequest, isCreditcoin: boolean) {
     else result = tokenInterface.encodeFunctionResult('symbol', ['pkUSDC']);
   } else result = '0x0';
   return result;
+}
+
+function usagePaid() {
+  const encoded = usageInterface.encodeEventLog(
+    usageInterface.getEvent('UsagePaid')!,
+    [orderId, machineId, owner, owner, 1500, 1000, 2_500_000],
+  );
+  return {
+    address: '0x0000000000000000000000000000000000000001',
+    blockHash: `0x${'a1'.repeat(32)}`,
+    blockNumber: '0xb26bfe',
+    transactionHash: `0x${'fa'.repeat(32)}`,
+    transactionIndex: '0x0',
+    logIndex: '0x0',
+    removed: false,
+    topics: encoded.topics,
+    data: encoded.data,
+  };
+}
+
+function activation() {
+  const encoded = proofInterface.encodeEventLog(
+    proofInterface.getEvent('ProofKeyAccessActivated')!,
+    [`0x${'12'.repeat(32)}`, orderId, machineId, owner, 2500],
+  );
+  return {
+    address: '0x0000000000000000000000000000000000000005',
+    blockHash: `0x${'a2'.repeat(32)}`,
+    blockNumber: '0x539010',
+    transactionHash: `0x${'ab'.repeat(32)}`,
+    transactionIndex: '0x0',
+    logIndex: '0x0',
+    removed: false,
+    topics: encoded.topics,
+    data: encoded.data,
+  };
+}
+
+function creditcoinBlock() {
+  return {
+    number: '0x539100',
+    hash: `0x${'01'.repeat(32)}`,
+    parentHash: `0x${'02'.repeat(32)}`,
+    nonce: '0x0000000000000000',
+    sha3Uncles: `0x${'03'.repeat(32)}`,
+    logsBloom: `0x${'00'.repeat(256)}`,
+    transactionsRoot: `0x${'04'.repeat(32)}`,
+    stateRoot: `0x${'05'.repeat(32)}`,
+    receiptsRoot: `0x${'06'.repeat(32)}`,
+    miner: owner,
+    difficulty: '0x0',
+    totalDifficulty: '0x0',
+    extraData: '0x',
+    size: '0x1',
+    gasLimit: '0x1c9c380',
+    gasUsed: '0x0',
+    timestamp: '0x7d0',
+    transactions: [],
+    uncles: [],
+    baseFeePerGas: '0x1',
+  };
+}
+
+async function installWallet(page: Page) {
+  await page.addInitScript(
+    ({ approvedAccount }) => {
+      type Listener = (...arguments_: unknown[]) => void;
+      const listeners = new Map<string, Set<Listener>>();
+      const provider = {
+        request: async ({ method }: { method: string }) => {
+          if (method === 'eth_chainId') return '0xaa36a7';
+          if (method === 'eth_accounts')
+            return localStorage.getItem('approved') ? [approvedAccount] : [];
+          if (method === 'eth_requestAccounts') {
+            localStorage.setItem('approved', 'yes');
+            queueMicrotask(() =>
+              listeners
+                .get('accountsChanged')
+                ?.forEach((listener) => listener([approvedAccount])),
+            );
+            return [approvedAccount];
+          }
+          throw Object.assign(
+            new Error(`Unsupported wallet method: ${method}`),
+            { code: 4200 },
+          );
+        },
+        on: (event: string, listener: Listener) => {
+          const set = listeners.get(event) ?? new Set<Listener>();
+          set.add(listener);
+          listeners.set(event, set);
+        },
+        removeListener: (event: string, listener: Listener) =>
+          listeners.get(event)?.delete(listener),
+      };
+      const detail = {
+        info: {
+          uuid: '450670db-19fa-4704-a166-e52e178b59d2',
+          name: 'Playwright Wallet',
+          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+          rdns: 'io.proofkey.activity',
+        },
+        provider,
+      };
+      const announce = () =>
+        window.dispatchEvent(
+          new CustomEvent('eip6963:announceProvider', { detail }),
+        );
+      Object.defineProperty(window, 'ethereum', { value: provider });
+      window.addEventListener('eip6963:requestProvider', announce);
+      queueMicrotask(announce);
+    },
+    { approvedAccount: owner },
+  );
 }
 
 function cc3Registration() {

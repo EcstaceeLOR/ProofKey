@@ -14,6 +14,9 @@ export interface RelayJob {
   sourceTransactionHash: string;
   phase: RelayPhase;
   creditcoinTransactionHash?: string;
+  orderId?: string;
+  machineId?: string;
+  payer?: string;
   accessExpiresAt?: string;
   failedAtPhase?: RelayPhase;
   error?: string;
