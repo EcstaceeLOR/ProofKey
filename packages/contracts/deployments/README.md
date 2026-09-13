@@ -7,3 +7,5 @@
 Review the output before committing a deployment record. Never commit deployment keys or RPC credentials.
 
 After both deployments exist, `npm run live:mvp --workspace @proofkey/worker` performs the real cross-chain demo and writes `live-mvp.json`. That evidence file and `../fixtures/recorded-live-proof.json` are emitted only after Creditcoin reports the payer as authorized. Both are public, secret-scanned records and are explicitly labeled as historical recorded-live evidence.
+
+`npm run seed:marketplace` idempotently synchronizes the committed five-machine catalog across the CC3 `MachineRegistry` and Sepolia `UsagePaymentRegistry`, verifies the resulting state, and writes `machine-catalog-live.json`. The file contains public transaction evidence only and does not certify the physical existence or condition of a represented machine.

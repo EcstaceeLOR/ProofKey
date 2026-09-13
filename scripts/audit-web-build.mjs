@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { extname, join, relative } from 'node:path';
+import { liveTestnetConfig } from '../apps/web/src/live-config.ts';
 
 const root = join(import.meta.dirname, '..');
 const output = join(root, 'apps', 'web', 'dist');
@@ -45,18 +46,20 @@ for (const check of forbidden)
   if (check.pattern.test(combined))
     failures.push(`Client bundle contains a forbidden ${check.label}.`);
 
-for (const name of [
-  'VITE_ETHEREUM_SEPOLIA_RPC_URL',
-  'VITE_CREDITCOIN_RPC_URL',
-  'VITE_PROOF_WORKER_URL',
-  'VITE_USAGE_PAYMENT_REGISTRY_ADDRESS',
-  'VITE_MACHINE_REGISTRY_ADDRESS',
-  'VITE_ACCESS_PASS_ADDRESS',
-  'VITE_PROOFKEY_ASC_ADDRESS',
-  'VITE_DEMO_MACHINE_ID',
-]) {
-  const value = process.env[name];
-  if (!value || !combined.toLowerCase().includes(value.toLowerCase()))
+const publicDefaults = {
+  VITE_ETHEREUM_SEPOLIA_RPC_URL: liveTestnetConfig.sepoliaRpcUrl,
+  VITE_CREDITCOIN_RPC_URL: liveTestnetConfig.creditcoinRpcUrl,
+  VITE_PROOF_WORKER_URL: liveTestnetConfig.workerUrl,
+  VITE_USAGE_PAYMENT_REGISTRY_ADDRESS:
+    liveTestnetConfig.usagePaymentRegistryAddress,
+  VITE_MACHINE_REGISTRY_ADDRESS: liveTestnetConfig.machineRegistryAddress,
+  VITE_ACCESS_PASS_ADDRESS: liveTestnetConfig.accessPassAddress,
+  VITE_PROOFKEY_ASC_ADDRESS: liveTestnetConfig.proofKeyAscAddress,
+  VITE_DEMO_MACHINE_ID: liveTestnetConfig.machineId,
+};
+for (const [name, fallback] of Object.entries(publicDefaults)) {
+  const value = process.env[name]?.trim() || fallback;
+  if (!combined.toLowerCase().includes(value.toLowerCase()))
     failures.push(`${name} was not emitted into the production bundle.`);
 }
 

@@ -396,7 +396,7 @@ export function Component() {
 
       <div className="checkout-grid">
         <section className="checkout-summary">
-          <MachineArtwork compact />
+          <MachineArtwork compact variant={machine.metadata?.image} />
           <p className="eyebrow">VERIFIED RENTAL</p>
           <h1>{machine.metadata?.name}</h1>
           <p>

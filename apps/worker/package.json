@@ -8,6 +8,7 @@
     "live:mvp": "npm run build && node dist/live-mvp.js",
     "live:verify": "npm run build && node dist/verify-live.js",
     "relay": "npm run build && node dist/cli.js",
+    "seed:marketplace": "npm run build && node dist/seed-marketplace.js",
     "serve": "npm run build && node dist/server.js",
     "test": "npm run build && node --test dist/evidence.test.js dist/executor.test.js dist/http.test.js dist/queue.test.js dist/relay.test.js dist/store.test.js dist/usage-receipt.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"

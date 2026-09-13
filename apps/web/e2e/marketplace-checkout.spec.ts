@@ -4,6 +4,11 @@ import {
   usageReceiptMessage,
   type UsageReceiptPayload,
 } from '../src/device-session.js';
+import { allCatalogMachines } from '../src/machine-metadata.js';
+import {
+  machineRegistryEvents,
+  paymentRegistryEvents,
+} from '../src/marketplace.js';
 
 const machineId =
   '0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc';
@@ -41,12 +46,18 @@ const proofInterface = new Interface([
   'event ProofKeyAccessActivated(bytes32 indexed queryId,bytes32 indexed orderId,bytes32 indexed machineId,address payer,uint64 expiresAt)',
 ]);
 const orderId = `0x${'ee'.repeat(32)}`;
+const catalogFixtures = allCatalogMachines().map((machine, index) => ({
+  ...machine,
+  machineId: keccak256(toUtf8Bytes(machine.label)),
+  metadataHash: keccak256(toUtf8Bytes(machine.uri)),
+  blockOffset: index,
+}));
 
 test('Explore, machine detail, and checkout form one verified journey', async ({
   page,
 }) => {
   await mockMarketplaceRpc(page);
-  await page.goto('/explore');
+  await page.goto('/explore', { waitUntil: 'domcontentloaded' });
   await expect(
     page.getByRole('heading', { name: 'Industrial Excavator' }),
   ).toBeVisible({ timeout: 15_000 });
@@ -68,6 +79,34 @@ test('Explore, machine detail, and checkout form one verified journey', async ({
     page.getByRole('heading', { name: 'Review exact terms' }),
   ).toBeVisible();
   await expect(page.getByText('2 hours', { exact: true })).toBeVisible();
+});
+
+test('five live-style machine types are searchable and open distinct details', async ({
+  page,
+}) => {
+  test.slow();
+  await mockMarketplaceRpc(page, false, true);
+  await page.goto('/explore');
+  await expect(page.locator('.catalog-card')).toHaveCount(5, {
+    timeout: 15_000,
+  });
+  await expect(page.locator('.result-count')).toContainText('05');
+  await expect(page.locator('.result-count')).toContainText('machines found');
+  await page
+    .getByPlaceholder('Search machine, capability or location')
+    .fill('solar power Abuja');
+  await expect(page.locator('.catalog-card')).toHaveCount(1);
+  await expect(
+    page.getByRole('heading', { name: 'Mobile Solar Power Unit' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'View machine' }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/machines/${catalogFixtures[2]!.machineId}$`),
+  );
+  await expect(page.getByText('60 kWh battery storage')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /Book machine time/ }),
+  ).toHaveAttribute('href', `/rent/${catalogFixtures[2]!.machineId}`);
 });
 
 test('checkout fails closed when registry RPC is unavailable', async ({
@@ -446,7 +485,11 @@ test('customer and device browsers complete a one-time signed machine session', 
   ]);
 });
 
-async function mockMarketplaceRpc(page: Page, includeUsage = false) {
+async function mockMarketplaceRpc(
+  page: Page,
+  includeUsage = false,
+  includeCatalog = false,
+) {
   await page.route('https://**.rpc.proofkey.invalid/**', async (route) => {
     const request = route.request();
     const payload = request.postDataJSON() as RpcRequest | RpcRequest[];
@@ -455,7 +498,7 @@ async function mockMarketplaceRpc(page: Page, includeUsage = false) {
     const responses = requests.map((rpc) => ({
       jsonrpc: '2.0',
       id: rpc.id,
-      result: rpcResult(rpc, isCreditcoin, includeUsage),
+      result: rpcResult(rpc, isCreditcoin, includeUsage, includeCatalog),
     }));
     await route.fulfill({
       status: 200,
@@ -475,6 +518,7 @@ function rpcResult(
   rpc: RpcRequest,
   isCreditcoin: boolean,
   includeUsage: boolean,
+  includeCatalog: boolean,
 ) {
   let result: unknown;
   if (rpc.method === 'eth_chainId')
@@ -504,8 +548,12 @@ function rpcResult(
             ? [usagePaid()]
             : []
           : isCreditcoin
-            ? [cc3Registration()]
-            : [sepoliaOffer()];
+            ? includeCatalog
+              ? catalogFixtures.map((machine) => cc3Registration(machine))
+              : [cc3Registration()]
+            : includeCatalog
+              ? catalogFixtures.map((machine) => sepoliaOffer(machine))
+              : [sepoliaOffer()];
   } else if (rpc.method === 'eth_getBlockByNumber') {
     result = creditcoinBlock();
   } else if (rpc.method === 'eth_call') {
@@ -525,26 +573,46 @@ function rpcResult(
       ]);
     else if (target.endsWith('04'))
       result = accessInterface.encodeFunctionResult('isAuthorized', [true]);
-    else if (target.endsWith('02'))
+    else if (target.endsWith('02')) {
+      const requestedId = machineInterface.decodeFunctionData(
+        'machines',
+        call.data,
+      )[0] as string;
+      const fixture = includeCatalog
+        ? catalogFixtures.find(
+            ({ machineId: candidate }) =>
+              candidate.toLowerCase() === requestedId.toLowerCase(),
+          )
+        : undefined;
       result = machineInterface.encodeFunctionResult('machines', [
         owner,
         owner,
-        metadataHash,
-        2500n,
+        fixture?.metadataHash ?? metadataHash,
+        fixture ? BigInt(fixture.tariff) : 2500n,
         true,
       ]);
-    else if (
+    } else if (
       target.endsWith('01') &&
       call.data.startsWith(
         paymentInterface.getFunction('machineOffers')!.selector,
       )
-    )
+    ) {
+      const requestedId = paymentInterface.decodeFunctionData(
+        'machineOffers',
+        call.data,
+      )[0] as string;
+      const fixture = includeCatalog
+        ? catalogFixtures.find(
+            ({ machineId: candidate }) =>
+              candidate.toLowerCase() === requestedId.toLowerCase(),
+          )
+        : undefined;
       result = paymentInterface.encodeFunctionResult('machineOffers', [
         owner,
-        2500n,
+        fixture ? BigInt(fixture.tariff) : 2500n,
         true,
       ]);
-    else if (target.endsWith('01'))
+    } else if (target.endsWith('01'))
       result = call.data.startsWith(
         paymentInterface.getFunction('owner')!.selector,
       )
@@ -994,39 +1062,43 @@ async function mockDeviceRelay(
   });
 }
 
-function cc3Registration() {
+function cc3Registration(fixture?: (typeof catalogFixtures)[number]) {
+  const id = fixture?.machineId ?? machineId;
+  const digest = fixture?.metadataHash ?? metadataHash;
+  const tariff = fixture ? BigInt(fixture.tariff) : 2500n;
+  const encoded = machineRegistryEvents.encodeEventLog(
+    machineRegistryEvents.getEvent('MachineRegistered')!,
+    [id, owner, owner, digest, tariff, true],
+  );
   return {
     address: '0x0000000000000000000000000000000000000002',
     blockHash: `0x${'aa'.repeat(32)}`,
-    blockNumber: '0x539006',
-    transactionHash: `0x${'bb'.repeat(32)}`,
+    blockNumber: `0x${(0x539006 + (fixture?.blockOffset ?? 0)).toString(16)}`,
+    transactionHash: keccak256(toUtf8Bytes(`cc3:${id}`)),
     transactionIndex: '0x0',
     logIndex: '0x0',
     removed: false,
-    topics: [
-      '0x986cbf5e3020e941aeaa92bffac52f24650187bfc582c05c3bee4bb284f31d77',
-      machineId,
-      `0x${'0'.repeat(24)}${owner.slice(2)}`,
-      `0x${'0'.repeat(24)}${owner.slice(2)}`,
-    ],
-    data: `${metadataHash}${'0'.repeat(60)}09c4${'0'.repeat(63)}1`,
+    topics: encoded.topics,
+    data: encoded.data,
   };
 }
 
-function sepoliaOffer() {
+function sepoliaOffer(fixture?: (typeof catalogFixtures)[number]) {
+  const id = fixture?.machineId ?? machineId;
+  const tariff = fixture ? BigInt(fixture.tariff) : 2500n;
+  const encoded = paymentRegistryEvents.encodeEventLog(
+    paymentRegistryEvents.getEvent('MachineOfferSet')!,
+    [id, owner, tariff, true],
+  );
   return {
     address: '0x0000000000000000000000000000000000000001',
     blockHash: `0x${'cc'.repeat(32)}`,
-    blockNumber: '0xb26bff',
-    transactionHash: `0x${'dd'.repeat(32)}`,
+    blockNumber: `0x${(0xb26bff + (fixture?.blockOffset ?? 0)).toString(16)}`,
+    transactionHash: keccak256(toUtf8Bytes(`sepolia:${id}`)),
     transactionIndex: '0x0',
     logIndex: '0x0',
     removed: false,
-    topics: [
-      '0x7fe5f9ca822b5223f722e4b037ac183e3131d3747c2c4d537baf6b51448ce923',
-      machineId,
-      `0x${'0'.repeat(24)}${owner.slice(2)}`,
-    ],
-    data: `0x${'0'.repeat(60)}09c4${'0'.repeat(63)}1`,
+    topics: encoded.topics,
+    data: encoded.data,
   };
 }
