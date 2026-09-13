@@ -2,6 +2,8 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export interface WorkerConfig {
+  databaseUrl: string;
+  databaseSsl: boolean;
   sepoliaRpcUrl: string;
   creditcoinRpcUrl: string;
   proofBuilderUrl: string;
@@ -15,16 +17,23 @@ export interface WorkerConfig {
   attestationTimeoutMs: number;
   retryAttempts: number;
   retryBaseDelayMs: number;
-  stateFile: string;
+  queuePollMs: number;
+  leaseDurationMs: number;
+  leaseHeartbeatMs: number;
+  relayerMinimumBalanceWei: string;
   serverPort: number;
   serverHost: string;
-  frontendOrigin: string;
+  frontendOrigins: string[];
+  rateLimitRequests: number;
+  rateLimitWindowMs: number;
 }
 
 export function loadConfig(): WorkerConfig {
   const rootEnv = resolve(import.meta.dirname, '../../..', '.env');
   if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
   return {
+    databaseUrl: required('DATABASE_URL'),
+    databaseSsl: boolean('DATABASE_SSL', false),
     sepoliaRpcUrl: required('ETHEREUM_SEPOLIA_RPC_URL'),
     creditcoinRpcUrl: required('CREDITCOIN_TESTNET_RPC_URL'),
     proofBuilderUrl:
@@ -40,13 +49,22 @@ export function loadConfig(): WorkerConfig {
     attestationTimeoutMs: integer('ATTESTATION_TIMEOUT_MS', 1_200_000),
     retryAttempts: integer('RELAY_RETRY_ATTEMPTS', 3),
     retryBaseDelayMs: integer('RELAY_RETRY_BASE_DELAY_MS', 2_000),
-    stateFile:
-      process.env.RELAY_STATE_FILE ??
-      resolve(import.meta.dirname, '../data/jobs.json'),
-    serverPort: integer('WORKER_PORT', 8787),
+    queuePollMs: integer('RELAY_QUEUE_POLL_MS', 2_000),
+    leaseDurationMs: integer('RELAY_LEASE_DURATION_MS', 90_000),
+    leaseHeartbeatMs: integer('RELAY_LEASE_HEARTBEAT_MS', 30_000),
+    relayerMinimumBalanceWei: unsignedInteger(
+      'RELAYER_MINIMUM_CC3_WEI',
+      '10000000000000000',
+    ),
+    serverPort: integerFrom(['PORT', 'WORKER_PORT'], 8787),
     serverHost: process.env.WORKER_HOST?.trim() ?? '127.0.0.1',
-    frontendOrigin:
-      process.env.FRONTEND_ORIGIN?.trim() ?? 'http://localhost:5173',
+    frontendOrigins: origins(
+      process.env.FRONTEND_ORIGINS ??
+        process.env.FRONTEND_ORIGIN ??
+        'http://localhost:5173',
+    ),
+    rateLimitRequests: integer('RELAY_RATE_LIMIT_REQUESTS', 10),
+    rateLimitWindowMs: integer('RELAY_RATE_LIMIT_WINDOW_MS', 60_000),
   };
 }
 
@@ -70,4 +88,37 @@ function integer(name: string, fallback: number): number {
   if (!Number.isSafeInteger(value) || value < 1)
     throw new Error(`${name} must be a positive integer.`);
   return value;
+}
+
+function integerFrom(names: string[], fallback: number): number {
+  const name = names.find((candidate) => process.env[candidate] !== undefined);
+  return name ? integer(name, fallback) : fallback;
+}
+
+function boolean(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (raw === undefined || raw === '') return fallback;
+  if (raw === 'true' || raw === '1') return true;
+  if (raw === 'false' || raw === '0') return false;
+  throw new Error(`${name} must be true or false.`);
+}
+
+function unsignedInteger(name: string, fallback: string): string {
+  const value = process.env[name]?.trim() ?? fallback;
+  if (!/^\d+$/.test(value))
+    throw new Error(`${name} must be an unsigned integer.`);
+  return value;
+}
+
+function origins(raw: string): string[] {
+  const values = [
+    ...new Set(raw.split(',').map((value) => value.trim())),
+  ].filter(Boolean);
+  if (values.length === 0) throw new Error('FRONTEND_ORIGINS cannot be empty.');
+  return values.map((value) => {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.origin !== value)
+      throw new Error(`Invalid browser origin ${value}.`);
+    return value;
+  });
 }

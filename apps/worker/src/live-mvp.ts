@@ -231,6 +231,8 @@ async function main(): Promise<void> {
   }
 
   const relayConfig: WorkerConfig = {
+    databaseUrl: '',
+    databaseSsl: false,
     sepoliaRpcUrl: required('ETHEREUM_SEPOLIA_RPC_URL'),
     creditcoinRpcUrl: required('CREDITCOIN_TESTNET_RPC_URL'),
     proofBuilderUrl:
@@ -246,10 +248,15 @@ async function main(): Promise<void> {
     attestationTimeoutMs: positiveNumber('ATTESTATION_TIMEOUT_MS', 1_200_000),
     retryAttempts: positiveNumber('RELAY_RETRY_ATTEMPTS', 3),
     retryBaseDelayMs: positiveNumber('RELAY_RETRY_BASE_DELAY_MS', 2_000),
-    stateFile: '',
+    queuePollMs: 2_000,
+    leaseDurationMs: 90_000,
+    leaseHeartbeatMs: 30_000,
+    relayerMinimumBalanceWei: '10000000000000000',
     serverPort: 8787,
     serverHost: '127.0.0.1',
-    frontendOrigin: 'http://localhost:5173',
+    frontendOrigins: ['http://localhost:5173'],
+    rateLimitRequests: 10,
+    rateLimitWindowMs: 60_000,
   };
   const adapter = new NetworkRelayAdapter(relayConfig);
   await adapter.assertNetworks();

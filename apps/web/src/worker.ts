@@ -1,5 +1,25 @@
 import type { RelayJob } from './flow.js';
 
+export function normalizeProofWorkerUrl(
+  value: string | undefined,
+  production: boolean,
+): string {
+  const normalized = (value?.trim() ?? '').replace(/\/$/, '');
+  let url: URL;
+  try {
+    url = new URL(normalized);
+  } catch {
+    throw new Error('Set VITE_PROOF_WORKER_URL to the public relay URL.');
+  }
+  if (
+    production &&
+    (url.protocol !== 'https:' ||
+      ['localhost', '127.0.0.1', '::1'].includes(url.hostname))
+  )
+    throw new Error('Production requires a public HTTPS proof relay URL.');
+  return normalized;
+}
+
 export class ProofWorkerClient {
   constructor(private readonly baseUrl: string) {}
 
@@ -41,10 +61,18 @@ export class ProofWorkerClient {
   }
 
   private async parse(response: Response): Promise<RelayJob> {
-    const body = (await response.json()) as RelayJob & { error?: string };
-    if (!response.ok)
-      throw new Error(body.error ?? `Worker returned HTTP ${response.status}.`);
-    return body;
+    const body = (await response.json()) as Omit<RelayJob, 'error'> & {
+      error?: string | { code: string; message: string; retryable: boolean };
+    };
+    if (!response.ok) {
+      const error = body.error;
+      const message =
+        typeof error === 'string'
+          ? error
+          : (error?.message ?? `Worker returned HTTP ${response.status}.`);
+      throw new Error(message);
+    }
+    return body as RelayJob;
   }
 }
 

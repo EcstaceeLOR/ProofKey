@@ -149,12 +149,24 @@ export class ProofRelay {
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      const errorMessage = `${activePhase}: ${reason}`;
+      const permanent = error instanceof PermanentRelayError;
+      const publicMessage = permanent
+        ? reason
+        : `${phaseLabel(activePhase)} failed after ${this.maxAttempts} bounded attempts.`;
+      const errorMessage = `${activePhase}: ${publicMessage}`;
       job = {
         ...job,
         phase: 'failed',
         failedAtPhase: activePhase,
         error: errorMessage,
+        failure: {
+          code: permanent
+            ? error.code
+            : `${activePhase.toUpperCase()}_RETRIES_EXHAUSTED`,
+          message: publicMessage,
+          phase: activePhase,
+          retryable: false,
+        },
         updatedAt: this.timestamp(),
       };
       await this.store.save(job);
@@ -201,6 +213,7 @@ export class ProofRelay {
       updatedAt: this.timestamp(),
       failedAtPhase: undefined,
       error: undefined,
+      failure: undefined,
     };
     await this.store.save(next);
     const status: RelayStatus = {
@@ -215,5 +228,20 @@ export class ProofRelay {
 
   private timestamp(): string {
     return this.now().toISOString();
+  }
+}
+
+function phaseLabel(phase: RelayPhase): string {
+  switch (phase) {
+    case 'source_confirmation':
+      return 'Sepolia source confirmation';
+    case 'attestation_wait':
+      return 'Attestcoin coverage wait';
+    case 'proof_generation':
+      return 'Attestcoin proof generation';
+    case 'creditcoin_execution':
+      return 'Creditcoin proof execution';
+    default:
+      return 'Relay processing';
   }
 }

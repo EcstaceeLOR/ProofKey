@@ -4,7 +4,7 @@
 
 ProofKey lets a customer pay for machine time on Ethereum Sepolia and unlocks a non-transferable access credential on Creditcoin. Attestcoin proves the source transaction to Creditcoin without bridging assets or trusting the relay worker.
 
-**Status:** live testnet Product V1 · 87 automated tests · verified Sepolia-to-Creditcoin flow
+**Status:** live testnet Product V1 · 94 automated tests · verified Sepolia-to-Creditcoin flow
 
 [Launch ProofKey](https://proofkey.vercel.app) · [View the Sepolia payment](https://sepolia.etherscan.io/tx/0xb646bed97cd5ecafec256ea121a3ab7b5d147cce9c38e9e8f5f96cccfd17b967) · [View the Creditcoin authorization](https://creditcoin-testnet.blockscout.com/tx/0x45313262557698e745662272a1da814b74bcebb65b39990b44603c78cca64510)
 
@@ -36,14 +36,16 @@ flowchart LR
     U[Customer wallet] -->|approve + payForUsage| SPR[UsagePaymentRegistry<br/>Ethereum Sepolia]
     SPR -->|UsagePaid receipt| A[Attestcoin attestors]
     A --> PB[Attestcoin Proof Builder]
-    PB -->|transaction + Merkle + continuity proof| W[Permissionless relay worker]
+    PB -->|transaction + Merkle + continuity proof| W[Leased relay executor]
     W -->|execute proof| ASC[ProofKeyASC<br/>Creditcoin CC3]
     ASC -->|verifyAndEmit| NQV[Native Query Verifier<br/>0x0FD2]
     MR[MachineRegistry] -->|owner + tariff + active state| ASC
     ASC -->|grantAccess| AP[AccessPass]
     AP -->|isAuthorized| D[Physical machine / simulator]
     UI[ProofKey web app] --> U
-    UI --> W
+    UI --> API[Public relay API]
+    API --> DB[(PostgreSQL job store)]
+    W --> DB
     UI --> AP
 ```
 
@@ -53,7 +55,7 @@ flowchart LR
 | ---------------------- | ------------------------------------------------------------------------------ |
 | `UsagePaymentRegistry` | Settles ERC-20 usage payments and emits the complete authorization record.     |
 | Attestcoin             | Proves Sepolia transaction inclusion and canonical-chain continuity.           |
-| Relay worker           | Waits for coverage, obtains the proof, and submits public proof data to CC3.   |
+| Relay API and executor | Durably queue jobs, obtain proofs, and submit public proof data to CC3.        |
 | Native verifier        | Creditcoin precompile `0x0FD2`; cryptographically validates Attestcoin proofs. |
 | `ProofKeyASC`          | Decodes the proven receipt, enforces policy, blocks replay, and grants access. |
 | `MachineRegistry`      | Stores owner-controlled machine identity, tariff, metadata, and active status. |
@@ -139,12 +141,12 @@ The complete local check does not require a funded wallet or private RPC endpoin
 
 ## Run the applications
 
-Set the public `VITE_*` addresses from the committed deployment manifests and provide a Sepolia RPC URL in the ignored root `.env`. Set `VITE_WALLETCONNECT_PROJECT_ID` to a public Reown Cloud project ID to enable mobile QR connections. Live relaying also requires `WORKER_PRIVATE_KEY`, `SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS`, and `PROOFKEY_ASC_ADDRESS`; the required fields are documented in `.env.example`. Never place private keys in `VITE_*` variables.
+Set the public `VITE_*` addresses from the committed deployment manifests and provide a Sepolia RPC URL in the ignored root `.env`. Set `VITE_WALLETCONNECT_PROJECT_ID` to a public Reown Cloud project ID to enable mobile QR connections. Live relaying also requires PostgreSQL through `DATABASE_URL`, plus `WORKER_PRIVATE_KEY`, `SEPOLIA_USAGE_PAYMENT_REGISTRY_ADDRESS`, and `PROOFKEY_ASC_ADDRESS`; the required fields are documented in `.env.example`. Never place private keys in `VITE_*` variables.
 
 Start each application in a separate terminal:
 
 ```bash
-# Attestcoin relay API
+# Durable Attestcoin relay API and executor
 npm run serve --workspace @proofkey/worker
 
 # Customer payment and proof journey
@@ -184,14 +186,14 @@ npm run check
 
 The gate runs formatting, TypeScript checks, all automated tests, Solidity compilation, and production builds.
 
-| Suite            |  Tests | Coverage focus                                                                                    |
-| ---------------- | -----: | ------------------------------------------------------------------------------------------------- |
-| Solidity         |     52 | Receipt semantics, proof tampering, replay, authorization, pricing, ownership, expiry, reentrancy |
-| Relay worker     |     12 | Phase transitions, retries, idempotency, persistence, HTTP validation, secret-safe evidence       |
-| Customer web     |     16 | Proof state, route helpers, exact token math, wallet lifecycle and error handling                 |
-| Wallet browser   |      1 | EIP-6963 production connect button and prompt-free persisted reconnect                            |
-| Device simulator |      6 | Locked/unlocking/unlocked/expired states, tampered results, RPC failure                           |
-| **Total**        | **87** |                                                                                                   |
+| Suite            |  Tests | Coverage focus                                                                                     |
+| ---------------- | -----: | -------------------------------------------------------------------------------------------------- |
+| Solidity         |     52 | Receipt semantics, proof tampering, replay, authorization, pricing, ownership, expiry, reentrancy  |
+| Relay worker     |     16 | Leases, restart recovery, retries, idempotency, CORS, rate limits, readiness, secret-safe evidence |
+| Customer web     |     19 | Proof state, route helpers, relay URL safety, exact token math, wallet lifecycle and errors        |
+| Wallet browser   |      1 | EIP-6963 production connect button and prompt-free persisted reconnect                             |
+| Device simulator |      6 | Locked/unlocking/unlocked/expired states, tampered results, RPC failure                            |
+| **Total**        | **94** |                                                                                                    |
 
 The Solidity suite uses explicit verifier doubles at `0x0FD2` to isolate adversarial proof cases. Those tests are distinct from the committed live CC3 transaction, which executed against Creditcoin's real Native Query Verifier.
 
@@ -221,7 +223,7 @@ The Solidity suite uses explicit verifier doubles at `0x0FD2` to isolate adversa
 
 - The MVP supports Ethereum Sepolia through Attestcoin chain key `1`; additional source chains require explicit contract and policy configuration.
 - `MockUSDC` is permissionless testnet currency and must never be presented as production USDC.
-- The relay is required for liveness, although never for authorization trust. Production deployments should run multiple relayers.
+- The relay is required for liveness, although never for authorization trust. PostgreSQL leases make restart recovery safe and allow additional executors without duplicate jobs.
 - Machine metadata is a hash commitment, not an oracle-certified statement about the physical asset.
 - The simulator demonstrates the control decision; production hardware still needs secure key storage, authenticated control channels, and tamper resistance.
 - The customer and device applications are testnet MVP clients, not audited production interfaces.

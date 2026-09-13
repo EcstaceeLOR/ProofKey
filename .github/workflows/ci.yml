@@ -11,6 +11,22 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: proofkey_test
+          POSTGRES_PASSWORD: proofkey_test
+          POSTGRES_USER: proofkey_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U proofkey_test -d proofkey_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://proofkey_test:proofkey_test@127.0.0.1:5432/proofkey_test
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

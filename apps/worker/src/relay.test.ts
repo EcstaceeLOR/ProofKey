@@ -147,13 +147,19 @@ test('bounds retries and records an actionable failed phase', async () => {
 
   await assert.rejects(
     relay.process(hash),
-    /creditcoin_execution: temporary Creditcoin RPC failure/,
+    /creditcoin_execution: Creditcoin proof execution failed after 3 bounded attempts/,
   );
   assert.equal(adapter.submissions, 3);
   const failed = await store.get(hash);
   assert.equal(failed?.phase, 'failed');
   assert.equal(failed?.failedAtPhase, 'creditcoin_execution');
   assert.equal(failed?.attempts.creditcoin_execution, 3);
+  assert.deepEqual(failed?.failure, {
+    code: 'CREDITCOIN_EXECUTION_RETRIES_EXHAUSTED',
+    message: 'Creditcoin proof execution failed after 3 bounded attempts.',
+    phase: 'creditcoin_execution',
+    retryable: false,
+  });
 });
 
 test('rejects malformed hashes before touching either network', async () => {

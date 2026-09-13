@@ -47,6 +47,14 @@ export interface RelayJob {
   creditcoinTransactionHash?: string;
   failedAtPhase?: RelayPhase;
   error?: string;
+  failure?: RelayFailure;
+}
+
+export interface RelayFailure {
+  code: string;
+  message: string;
+  phase: RelayPhase;
+  retryable: boolean;
 }
 
 export interface RelayStatus {
@@ -60,6 +68,42 @@ export interface RelayStatus {
 export interface JobStore {
   get(sourceTransactionHash: string): Promise<RelayJob | undefined>;
   save(job: RelayJob): Promise<void>;
+}
+
+export interface DurableJobStore extends JobStore {
+  create(job: RelayJob): Promise<{ job: RelayJob; created: boolean }>;
+  claimNext(
+    ownerId: string,
+    leaseDurationMs: number,
+  ): Promise<RelayJob | undefined>;
+  renewLease(
+    sourceTransactionHash: string,
+    ownerId: string,
+    leaseDurationMs: number,
+  ): Promise<boolean>;
+  release(sourceTransactionHash: string, ownerId: string): Promise<void>;
+  isReady(): Promise<boolean>;
+  close(): Promise<void>;
+}
+
+export interface ReadinessCheck {
+  status: 'ready' | 'unavailable';
+  code?: string;
+}
+
+export interface RelayReadiness {
+  status: 'ready' | 'degraded';
+  checks: {
+    api: ReadinessCheck;
+    database: ReadinessCheck;
+    sourceRpc: ReadinessCheck;
+    creditcoinRpc: ReadinessCheck;
+    relayer: ReadinessCheck & {
+      address?: string;
+      balanceWei?: string;
+      minimumBalanceWei?: string;
+    };
+  };
 }
 
 export interface RelayAdapter {

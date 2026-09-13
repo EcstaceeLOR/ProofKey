@@ -1,5 +1,12 @@
 export class PermanentRelayError extends Error {
   override readonly name = 'PermanentRelayError';
+
+  constructor(
+    message: string,
+    readonly code = 'INVALID_REQUEST',
+  ) {
+    super(message);
+  }
 }
 
 export interface RetryOptions {

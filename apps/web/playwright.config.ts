@@ -31,7 +31,7 @@ export default defineConfig({
       VITE_MACHINE_REGISTRY_ADDRESS:
         '0x0000000000000000000000000000000000000002',
       VITE_DEMO_MACHINE_ID: `0x${'01'.repeat(32)}`,
-      VITE_PROOF_WORKER_URL: 'http://127.0.0.1:1',
+      VITE_PROOF_WORKER_URL: 'https://relay.invalid',
       VITE_DEVICE_SIMULATOR_URL: 'http://127.0.0.1:1',
       VITE_WALLETCONNECT_PROJECT_ID: '',
     },
