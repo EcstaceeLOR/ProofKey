@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { formatEther, formatUnits } from 'ethers';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { useMarketplace, useRuntime } from '../app/AppProviders.js';
 import { DataState, MachineArtwork } from '../components/ProductUI.js';
 import type { CheckoutSnapshot, MachineOffer } from '../contracts.js';
@@ -19,7 +19,12 @@ import {
   totalForDuration,
   type RelayJob,
 } from '../flow.js';
-import { describeError, proofPath, rentalStorageKey } from '../product.js';
+import {
+  describeError,
+  isTransactionHash,
+  proofPath,
+  rentalStorageKey,
+} from '../product.js';
 import {
   createRentalSession,
   MAX_DURATION_SECONDS,
@@ -41,6 +46,8 @@ const checkoutSteps = [
 
 export function Component() {
   const { machineId = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const resumeHash = searchParams.get('resume');
   const runtime = useRuntime();
   const marketplace = useMarketplace();
   const machine = marketplace.data?.machines.find(
@@ -77,6 +84,24 @@ export function Component() {
     setSnapshot(undefined);
     setJob(undefined);
   }, [machineId, storageKey]);
+
+  useEffect(() => {
+    if (!resumeHash || !isTransactionHash(resumeHash)) return;
+    setSession((current) => {
+      if (
+        current.sourceTransactionHash?.toLowerCase() ===
+        resumeHash.toLowerCase()
+      )
+        return current;
+      const next = updateRentalSession(createRentalSession(machineId), {
+        phase: 'confirming',
+        account: runtime.account,
+        sourceTransactionHash: resumeHash,
+      });
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+  }, [machineId, resumeHash, runtime.account, storageKey]);
 
   const commit = (
     update: Partial<Omit<RentalSession, 'version' | 'machineId'>>,
@@ -283,6 +308,7 @@ export function Component() {
         commit({
           phase: 'confirming',
           orderId: recovered.orderId,
+          durationSeconds: Number(recovered.duration),
           startTime: recovered.startTime.toString(),
           expiresAt: recovered.expiresAt.toString(),
         });
@@ -322,6 +348,7 @@ export function Component() {
         phase: 'confirming',
         sourceTransactionHash: payment.transactionHash,
         orderId: payment.orderId,
+        durationSeconds: Number(payment.duration),
         startTime: payment.startTime.toString(),
         expiresAt: payment.expiresAt.toString(),
       });

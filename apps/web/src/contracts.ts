@@ -47,6 +47,9 @@ export interface AppConfig {
   machineLocation: string;
   creditcoinRegistryDeploymentBlock: number;
   sepoliaRegistryDeploymentBlock: number;
+  accessPassAddress: string;
+  proofKeyAscAddress: string;
+  proofKeyAscDeploymentBlock: number;
 }
 
 export interface MachineOffer {
@@ -62,6 +65,7 @@ export interface PaymentResult {
   transactionHash: string;
   orderId: string;
   startTime: bigint;
+  duration: bigint;
   expiresAt: bigint;
 }
 
@@ -80,6 +84,7 @@ export interface CheckoutSnapshot {
 
 export interface UsageActivity {
   orderId: string;
+  machineId: string;
   transactionHash: string;
   payer: string;
   beneficiary: string;
@@ -126,6 +131,16 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
       environment.VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK,
       11_691_302,
     ),
+    accessPassAddress:
+      environment.VITE_ACCESS_PASS_ADDRESS?.trim() ??
+      '0xa2D8dECC5665Fc3B969A58dBCe7Ff05E074127AA',
+    proofKeyAscAddress:
+      environment.VITE_PROOFKEY_ASC_ADDRESS?.trim() ??
+      '0x79fA79C1fdc7eFaA75Bc039CdbdFc1ce109775e7',
+    proofKeyAscDeploymentBlock: parseDeploymentBlock(
+      environment.VITE_PROOFKEY_ASC_DEPLOYMENT_BLOCK,
+      5_476_974,
+    ),
   };
   if (!config.sepoliaRpcUrl)
     throw new Error('Set VITE_ETHEREUM_SEPOLIA_RPC_URL to load the machine.');
@@ -137,12 +152,18 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
     throw new Error('Set a valid VITE_USAGE_PAYMENT_REGISTRY_ADDRESS.');
   if (!isAddress(config.machineRegistryAddress))
     throw new Error('Set a valid VITE_MACHINE_REGISTRY_ADDRESS.');
+  if (!isAddress(config.accessPassAddress))
+    throw new Error('Set a valid VITE_ACCESS_PASS_ADDRESS.');
+  if (!isAddress(config.proofKeyAscAddress))
+    throw new Error('Set a valid VITE_PROOFKEY_ASC_ADDRESS.');
   if (!isHexString(config.machineId, 32))
     throw new Error('Set VITE_DEMO_MACHINE_ID to a bytes32 value.');
   return {
     ...config,
     registryAddress: getAddress(config.registryAddress),
     machineRegistryAddress: getAddress(config.machineRegistryAddress),
+    accessPassAddress: getAddress(config.accessPassAddress),
+    proofKeyAscAddress: getAddress(config.proofKeyAscAddress),
   };
 }
 
@@ -398,6 +419,7 @@ export class PaymentClient {
         return [
           {
             orderId: event.args.orderId as string,
+            machineId: event.args.machineId as string,
             transactionHash: log.transactionHash,
             payer: getAddress(event.args.payer as string),
             beneficiary: getAddress(event.args.beneficiary as string),
@@ -408,6 +430,47 @@ export class PaymentClient {
           },
         ];
       });
+  }
+
+  async loadAccountUsage(payer: string): Promise<UsageActivity[]> {
+    const latest = await this.readProvider.getBlockNumber();
+    const payerTopic = `0x${'0'.repeat(24)}${getAddress(payer).slice(2).toLowerCase()}`;
+    const logs = await this.readProvider.getLogs({
+      address: this.config.registryAddress,
+      topics: [
+        registryInterface.getEvent('UsagePaid')!.topicHash,
+        null,
+        null,
+        payerTopic,
+      ],
+      fromBlock: this.config.sepoliaRegistryDeploymentBlock,
+      toBlock: latest,
+    });
+    return logs
+      .map((log) => this.usageFromLog(log))
+      .filter((item): item is UsageActivity => Boolean(item))
+      .sort((a, b) => b.blockNumber - a.blockNumber);
+  }
+
+  private usageFromLog(log: {
+    topics: readonly string[];
+    data: string;
+    transactionHash: string;
+    blockNumber: number;
+  }) {
+    const event = registryInterface.parseLog(log);
+    if (!event || event.name !== 'UsagePaid') return undefined;
+    return {
+      orderId: event.args.orderId as string,
+      machineId: event.args.machineId as string,
+      transactionHash: log.transactionHash,
+      payer: getAddress(event.args.payer as string),
+      beneficiary: getAddress(event.args.beneficiary as string),
+      startTime: event.args.startTime as bigint,
+      duration: event.args.duration as bigint,
+      amount: event.args.amount as bigint,
+      blockNumber: log.blockNumber,
+    } satisfies UsageActivity;
   }
 
   private paymentFromReceipt(
@@ -432,6 +495,7 @@ export class PaymentClient {
           transactionHash,
           orderId: parsed.args.orderId as string,
           startTime,
+          duration: parsed.args.duration as bigint,
           expiresAt: startTime + (parsed.args.duration as bigint),
         };
       } catch {

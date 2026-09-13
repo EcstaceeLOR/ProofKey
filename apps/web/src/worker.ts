@@ -28,6 +28,12 @@ export class ProofWorkerClient {
     return this.parse(response);
   }
 
+  async find(transactionHash: string): Promise<RelayJob | undefined> {
+    const response = await fetch(`${this.baseUrl}/jobs/${transactionHash}`);
+    if (response.status === 404) return undefined;
+    return this.parse(response);
+  }
+
   async enqueue(transactionHash: string): Promise<RelayJob> {
     const response = await fetch(`${this.baseUrl}/jobs`, {
       method: 'POST',

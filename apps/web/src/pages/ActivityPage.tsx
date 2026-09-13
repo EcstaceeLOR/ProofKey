@@ -2,110 +2,229 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
   Clock3,
+  Download,
   ExternalLink,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
-import { Link } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { useRuntime } from '../app/AppProviders.js';
+import {
+  paginateRentals,
+  readOptimisticRentals,
+  type RentalLifecycle,
+  type RentalRecord,
+} from '../activity.js';
 import { DataState, PageHeading } from '../components/ProductUI.js';
-import { progressFromJob } from '../flow.js';
-import { compactHash, proofPath, rentalStorageKey } from '../product.js';
-import { ProofWorkerClient } from '../worker.js';
+import { compactHash, machinePath, proofPath, rentPath } from '../product.js';
+
+const tabs: Array<{ value: 'all' | RentalLifecycle; label: string }> = [
+  { value: 'all', label: 'All activity' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'action-required', label: 'Action required' },
+];
 
 export function Component() {
-  const { config, account } = useRuntime();
-  const storageKey = config
-    ? rentalStorageKey(config.registryAddress, config.machineId)
-    : '';
-  const sourceTransactionHash = storageKey
-    ? localStorage.getItem(storageKey)
-    : undefined;
-  const job = useQuery({
-    queryKey: ['relay-job', sourceTransactionHash],
-    queryFn: () =>
-      new ProofWorkerClient(config!.workerUrl).get(sourceTransactionHash!),
-    enabled: Boolean(config && sourceTransactionHash),
-    refetchInterval: 5_000,
-    retry: false,
+  const runtime = useRuntime();
+  const [params, setParams] = useSearchParams();
+  const status = (
+    tabs.some((tab) => tab.value === params.get('status'))
+      ? params.get('status')
+      : 'all'
+  ) as 'all' | RentalLifecycle;
+  const page = Number(params.get('page') ?? 1) || 1;
+  const optimistic =
+    runtime.config && runtime.account
+      ? readOptimisticRentals(
+          localStorage,
+          runtime.config.registryAddress,
+          runtime.account,
+        )
+      : [];
+  const activity = useQuery({
+    queryKey: ['wallet-activity', runtime.account?.toLowerCase()],
+    queryFn: () => runtime.activityClient!.load(runtime.account!, optimistic),
+    enabled: Boolean(runtime.activityClient && runtime.account),
+    retry: 1,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
   });
-  const progress = job.data ? progressFromJob(job.data) : undefined;
+  const result = paginateRentals(activity.data?.records ?? [], status, page, 6);
+  const counts = Object.fromEntries(
+    tabs.map((tab) => [
+      tab.value,
+      tab.value === 'all'
+        ? (activity.data?.records.length ?? 0)
+        : (activity.data?.records.filter((item) => item.status === tab.value)
+            .length ?? 0),
+    ]),
+  );
+  const setTab = (next: string) => {
+    const query = new URLSearchParams();
+    if (next !== 'all') query.set('status', next);
+    setParams(query, { replace: true });
+  };
 
   return (
     <div className="route-page">
       <PageHeading
         eyebrow="CUSTOMER CONTROL CENTER"
         title="Your machine access, in one place."
-        copy="Track pending payments, resume cross-chain proofs, and return to active or expired access without trusting browser memory as the final authority."
+        copy="Recovered from Sepolia payments, relay records, Creditcoin execution, and live AccessPass state—not browser memory."
         action={
           <div className="identity-card">
             <span>CONNECTED WALLET</span>
             <strong>
-              {account ? compactHash(account, 8, 6) : 'Not connected'}
+              {runtime.account
+                ? compactHash(runtime.account, 8, 6)
+                : 'Not connected'}
             </strong>
           </div>
         }
       />
-      <div className="tab-row" role="tablist" aria-label="Rental status">
-        <button className="active" type="button">
-          All activity
-        </button>
-        <button type="button">Pending</button>
-        <button type="button">Active</button>
-        <button type="button">Expired</button>
+
+      <div
+        className="tab-row activity-tabs"
+        role="tablist"
+        aria-label="Rental status"
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.value}
+            role="tab"
+            aria-selected={status === tab.value}
+            className={status === tab.value ? 'active' : ''}
+            type="button"
+            onClick={() => setTab(tab.value)}
+          >
+            {tab.label}
+            <span>{counts[tab.value]}</span>
+          </button>
+        ))}
       </div>
 
-      {!account ? (
+      {!runtime.account ? (
         <DataState
           kind="empty"
-          title="Connect a wallet to view rentals"
-          copy="Your payment and access history will be scoped to the connected payer address."
+          title="Connect a wallet to recover rentals"
+          copy="ProofKey scopes every Sepolia payment and Creditcoin credential to the connected payer address."
+          action={
+            <button
+              className="button primary"
+              type="button"
+              onClick={runtime.openWallet}
+            >
+              Connect wallet
+            </button>
+          }
         />
-      ) : sourceTransactionHash ? (
-        <article className="activity-card">
-          <div className="activity-icon">
-            <Clock3 size={21} />
-          </div>
-          <div className="activity-main">
-            <span>PENDING CROSS-CHAIN RENTAL</span>
-            <h2>{config?.machineName}</h2>
-            <code>{compactHash(sourceTransactionHash, 14, 10)}</code>
-          </div>
-          <div className="activity-state">
-            <span>
-              {job.isFetching && <RefreshCw className="spin" size={13} />}{' '}
-              {progress?.label ??
-                (job.isError
-                  ? 'Relay temporarily unreachable'
-                  : 'Loading relay state')}
-            </span>
-            <strong>{progress?.verified ? 'VERIFIED' : 'IN PROGRESS'}</strong>
-          </div>
-          <div className="activity-actions">
-            <Link
+      ) : activity.isLoading ? (
+        <div className="activity-list" aria-label="Loading wallet history">
+          {[0, 1, 2].map((item) => (
+            <div className="activity-skeleton" key={item} />
+          ))}
+        </div>
+      ) : activity.isError ? (
+        <DataState
+          kind="offline"
+          title="Wallet history could not be reconciled"
+          copy="ProofKey could not safely correlate Sepolia, relay, and Creditcoin state. No access status was inferred."
+          action={
+            <button
               className="button secondary"
-              to={`/rent/${config?.machineId}`}
+              type="button"
+              onClick={() => void activity.refetch()}
             >
-              Resume <ArrowRight size={15} />
-            </Link>
-            <Link
-              className="icon-link"
-              to={proofPath(sourceTransactionHash)}
-              aria-label="Open proof"
-            >
-              <ShieldCheck size={18} />
-            </Link>
+              Retry all sources
+            </button>
+          }
+        />
+      ) : result.items.length ? (
+        <>
+          <div className="activity-index-state">
+            <span>
+              <RefreshCw size={12} /> Live correlation
+            </span>
+            <span>
+              CC3 time{' '}
+              {new Date(
+                (activity.data?.creditcoinTimestamp ?? 0) * 1000,
+              ).toLocaleString()}
+            </span>
+            <span>
+              Updated{' '}
+              {activity.data &&
+                new Date(activity.data.indexedAt).toLocaleTimeString()}
+            </span>
           </div>
-        </article>
+          <div className="activity-list">
+            {result.items.map((record) => (
+              <RentalRow
+                key={`${record.sourceTransactionHash}:${record.orderId ?? 'pending'}`}
+                record={record}
+                config={runtime.config!}
+                machineName={
+                  record.machineId.toLowerCase() ===
+                  runtime.config?.machineId.toLowerCase()
+                    ? runtime.config.machineName
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+          {result.totalPages > 1 && (
+            <nav className="pagination" aria-label="Rental history pages">
+              <button
+                type="button"
+                disabled={result.page === 1}
+                onClick={() => updatePage(params, setParams, result.page - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {result.page} of {result.totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={result.page === result.totalPages}
+                onClick={() => updatePage(params, setParams, result.page + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          )}
+        </>
       ) : (
         <DataState
           kind="empty"
-          title="No pending rentals"
-          copy="A payment made from this browser will appear here immediately and remain resumable until Creditcoin verification completes."
+          title={
+            status === 'all'
+              ? 'No rentals found for this wallet'
+              : `No ${status.replace('-', ' ')} rentals`
+          }
+          copy={
+            status === 'all'
+              ? 'A confirmed UsagePaid event from this wallet will appear here even in a fresh browser.'
+              : 'Choose another tab to inspect the rest of your wallet history.'
+          }
           action={
-            <Link className="button primary" to="/explore">
-              Find a machine <ArrowRight size={15} />
-            </Link>
+            status === 'all' ? (
+              <Link className="button primary" to="/explore">
+                Find a machine <ArrowRight size={15} />
+              </Link>
+            ) : (
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => setTab('all')}
+              >
+                Show all activity
+              </button>
+            )
           }
         />
       )}
@@ -114,15 +233,15 @@ export function Component() {
         <div>
           <ShieldCheck size={20} />
           <div>
-            <strong>History is independently verifiable</strong>
+            <strong>Four-source verification</strong>
             <p>
-              Every completed row links to both the source payment and
-              Creditcoin authorization transaction.
+              Every state is correlated across UsagePaid, the relay index,
+              ProofKeyASC, and AccessPass.
             </p>
           </div>
         </div>
         <a
-          href="https://creditcoin-testnet.blockscout.com"
+          href={runtime.config?.creditcoinExplorerUrl}
           target="_blank"
           rel="noreferrer"
         >
@@ -131,4 +250,149 @@ export function Component() {
       </section>
     </div>
   );
+}
+
+function RentalRow({
+  record,
+  config,
+  machineName,
+}: {
+  record: RentalRecord;
+  config: NonNullable<ReturnType<typeof useRuntime>['config']>;
+  machineName?: string;
+}) {
+  return (
+    <article className={`rental-row ${record.status}`}>
+      <div className="activity-icon">
+        <StatusIcon status={record.status} />
+      </div>
+      <div className="activity-main">
+        <span>
+          {record.optimistic ? 'LOCAL PENDING RECEIPT' : 'ON-CHAIN RENTAL'}
+        </span>
+        <h2>
+          {machineName ?? `Machine ${compactHash(record.machineId, 8, 5)}`}
+        </h2>
+        <Link to={machinePath(record.machineId)}>
+          {compactHash(record.machineId, 12, 8)}
+        </Link>
+      </div>
+      <div className="rental-lifecycle">
+        <span className={`rental-status ${record.status}`}>
+          {record.status.replace('-', ' ')}
+        </span>
+        <strong>{record.stateLabel}</strong>
+        <small>{record.nextAction}</small>
+        {record.status === 'active' && record.expiresAt && (
+          <Countdown expiresAt={record.expiresAt} />
+        )}
+        {record.diagnostic && <em>{record.diagnostic}</em>}
+      </div>
+      <div className="rental-evidence">
+        <a
+          href={`${config.sepoliaExplorerUrl}/tx/${record.sourceTransactionHash}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Sepolia <ExternalLink size={12} />
+        </a>
+        <Link to={proofPath(record.sourceTransactionHash)}>
+          Proof <ShieldCheck size={12} />
+        </Link>
+        {record.creditcoinTransactionHash && (
+          <a
+            href={`${config.creditcoinExplorerUrl}/tx/${record.creditcoinTransactionHash}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Creditcoin <ExternalLink size={12} />
+          </a>
+        )}
+      </div>
+      <div className="activity-actions">
+        {record.status === 'active' ? (
+          <Link className="button primary" to={`/device/${record.machineId}`}>
+            Open access <ArrowRight size={14} />
+          </Link>
+        ) : record.status === 'expired' ? (
+          <Link className="button secondary" to={rentPath(record.machineId)}>
+            Rent again
+          </Link>
+        ) : (
+          <Link
+            className="button secondary"
+            to={`${rentPath(record.machineId)}?resume=${record.sourceTransactionHash}`}
+          >
+            {record.status === 'pending' ? 'Track' : 'Resume'}{' '}
+            <ArrowRight size={14} />
+          </Link>
+        )}
+        <button
+          className="receipt-download"
+          type="button"
+          onClick={() => downloadReceipt(record)}
+          aria-label="Download receipt JSON"
+        >
+          <Download size={15} />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function StatusIcon({ status }: { status: RentalLifecycle }) {
+  return status === 'active' ? (
+    <ShieldCheck size={21} />
+  ) : status === 'pending' ? (
+    <RefreshCw className="spin" size={20} />
+  ) : (
+    <Clock3 size={21} />
+  );
+}
+
+function Countdown({ expiresAt }: { expiresAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const remaining = Math.max(0, expiresAt * 1000 - now);
+  const hours = Math.floor(remaining / 3_600_000);
+  const minutes = Math.floor((remaining % 3_600_000) / 60_000);
+  const seconds = Math.floor((remaining % 60_000) / 1000);
+  return (
+    <time dateTime={new Date(expiresAt * 1000).toISOString()}>
+      {hours}h {minutes}m {seconds}s remaining
+    </time>
+  );
+}
+
+function downloadReceipt(record: RentalRecord) {
+  const payload = JSON.stringify(
+    {
+      schema: 'proofkey.rental-receipt.v1',
+      exportedAt: new Date().toISOString(),
+      rental: record,
+    },
+    null,
+    2,
+  );
+  const url = URL.createObjectURL(
+    new Blob([payload], { type: 'application/json' }),
+  );
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `proofkey-${record.orderId ?? record.sourceTransactionHash}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function updatePage(
+  params: URLSearchParams,
+  setParams: ReturnType<typeof useSearchParams>[1],
+  page: number,
+) {
+  const next = new URLSearchParams(params);
+  next.set('page', String(page));
+  setParams(next, { replace: true });
 }

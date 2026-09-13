@@ -29,6 +29,7 @@ import {
   type MachineOffer,
   type UsageActivity,
 } from '../contracts.js';
+import { ActivityClient } from '../activity.js';
 import { describeError } from '../product.js';
 import { MarketplaceClient, type MarketplaceSnapshot } from '../marketplace.js';
 import { appKit, hasWalletConnect, wagmiConfig } from '../wallet/config.js';
@@ -43,6 +44,7 @@ interface RuntimeContextValue {
   config?: AppConfig;
   paymentClient?: PaymentClient;
   marketplaceClient?: MarketplaceClient;
+  activityClient?: ActivityClient;
   walletProvider?: Eip1193Provider;
   configurationError?: string;
   account?: string;
@@ -87,10 +89,12 @@ function RuntimeProvider({ children }: { children: ReactNode }) {
   const runtime = useMemo(() => {
     try {
       const config = loadAppConfig(import.meta.env);
+      const paymentClient = new PaymentClient(config);
       return {
         config,
-        paymentClient: new PaymentClient(config),
+        paymentClient,
         marketplaceClient: new MarketplaceClient(config),
+        activityClient: new ActivityClient(config, paymentClient),
       };
     } catch (error) {
       return { configurationError: describeError(error) };

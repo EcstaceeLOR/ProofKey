@@ -32,4 +32,7 @@ interface ImportMetaEnv {
   readonly VITE_DEMO_MACHINE_LOCATION?: string;
   readonly VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK?: string;
   readonly VITE_USAGE_PAYMENT_REGISTRY_DEPLOYMENT_BLOCK?: string;
+  readonly VITE_ACCESS_PASS_ADDRESS?: string;
+  readonly VITE_PROOFKEY_ASC_ADDRESS?: string;
+  readonly VITE_PROOFKEY_ASC_DEPLOYMENT_BLOCK?: string;
 }

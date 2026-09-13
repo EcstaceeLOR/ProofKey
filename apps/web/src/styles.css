@@ -1582,6 +1582,166 @@ input:focus-visible {
   border-radius: 18px;
   background: var(--paper);
 }
+.activity-tabs {
+  overflow-x: auto;
+}
+.activity-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.activity-tabs button > span {
+  display: grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(18, 27, 22, 0.08);
+  font-family: 'DM Mono', monospace;
+  font-size: 7px;
+}
+.activity-tabs button.active > span {
+  background: rgba(255, 255, 255, 0.16);
+}
+.activity-list {
+  display: grid;
+  gap: 10px;
+}
+.activity-skeleton {
+  min-height: 155px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.35) 20%,
+    rgba(255, 255, 255, 0.85) 40%,
+    rgba(255, 255, 255, 0.35) 60%
+  );
+  background-size: 220% 100%;
+  animation: marketplace-shimmer 1.3s infinite linear;
+}
+.activity-index-state {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin: -7px 0 12px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+.activity-index-state span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.rental-row {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 0.8fr) minmax(
+      230px,
+      1.25fr
+    ) auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-left: 4px solid #a7afa9;
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 8px 28px rgba(17, 32, 24, 0.04);
+}
+.rental-row.active {
+  border-left-color: #36a369;
+}
+.rental-row.pending {
+  border-left-color: #d69c38;
+}
+.rental-row.failed,
+.rental-row.action-required {
+  border-left-color: var(--orange);
+}
+.rental-row .activity-main > a {
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  text-decoration: none;
+}
+.rental-lifecycle {
+  display: grid;
+  gap: 5px;
+}
+.rental-lifecycle > strong {
+  font-size: 11px;
+}
+.rental-lifecycle > small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.rental-lifecycle > time {
+  color: #28734e;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+}
+.rental-lifecycle > em {
+  margin-top: 3px;
+  padding: 7px;
+  border-radius: 7px;
+  background: rgba(255, 104, 71, 0.09);
+  color: #98442e;
+  font-size: 8px;
+  font-style: normal;
+  line-height: 1.4;
+}
+.rental-status {
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #e5e8e1;
+  color: #687169;
+  font-family: 'DM Mono', monospace;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.rental-status.active {
+  background: #dff4e5;
+  color: #28734e;
+}
+.rental-status.pending {
+  background: #fff0cf;
+  color: #94691e;
+}
+.rental-status.failed,
+.rental-status.action-required {
+  background: #ffe4dc;
+  color: #98442e;
+}
+.rental-evidence {
+  display: grid;
+  gap: 5px;
+}
+.rental-evidence a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--forest);
+  font-size: 8px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.receipt-download {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+}
 .activity-icon {
   display: grid;
   width: 48px;
@@ -2592,6 +2752,19 @@ input:focus-visible {
   .activity-card {
     grid-template-columns: auto 1fr;
   }
+  .rental-row {
+    grid-template-columns: auto 1fr;
+  }
+  .rental-lifecycle,
+  .rental-evidence,
+  .rental-row .activity-actions {
+    grid-column: 2;
+  }
+  .activity-index-state {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 5px;
+  }
   .activity-state,
   .activity-actions {
     grid-column: 2;
@@ -2682,6 +2855,16 @@ input:focus-visible {
     display: flex;
     align-items: flex-start;
     flex-direction: column;
+  }
+  .rental-row {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .rental-lifecycle,
+  .rental-evidence,
+  .rental-row .activity-actions {
+    width: 100%;
   }
   .activity-state,
   .activity-actions {
