@@ -21,7 +21,7 @@ Create a PostgreSQL database, copy the root `.env.example` to `.env`, and config
 npm run serve --workspace @proofkey/worker
 ```
 
-The API and executor share a process for an economical testnet deployment, but they do not share an in-memory queue: PostgreSQL is the handoff and source of truth. This means a terminated process cannot lose an accepted job. `FOR UPDATE SKIP LOCKED` and renewable leases also support multiple executors.
+The API and executor share a process for an economical testnet deployment, but they do not share an in-memory queue: PostgreSQL is the handoff and source of truth. Relay tables live in the dedicated `proofkey` schema. This means a terminated process cannot lose an accepted job. `FOR UPDATE SKIP LOCKED` and renewable leases also support multiple executors.
 
 ## Render deployment
 

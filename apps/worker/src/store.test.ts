@@ -6,7 +6,7 @@ import { PostgresJobStore } from './store.js';
 import type { RelayJob } from './types.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
-const tableName = 'proofkey_relay_jobs_integration';
+const schemaName = 'proofkey_integration';
 const hash = `0x${'ab'.repeat(32)}`;
 const job: RelayJob = {
   sourceTransactionHash: hash,
@@ -22,10 +22,10 @@ test(
   async () => {
     assert.ok(databaseUrl);
     const admin = new Pool({ connectionString: databaseUrl });
-    await admin.query(`DROP TABLE IF EXISTS "${tableName}"`);
+    await admin.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
     await admin.end();
 
-    const firstProcess = new PostgresJobStore(databaseUrl, { tableName });
+    const firstProcess = new PostgresJobStore(databaseUrl, { schemaName });
     const first = await firstProcess.create(job);
     const duplicate = await firstProcess.create({
       ...job,
@@ -41,7 +41,7 @@ test(
     await firstProcess.close();
 
     await delay(35);
-    const restartedProcess = new PostgresJobStore(databaseUrl, { tableName });
+    const restartedProcess = new PostgresJobStore(databaseUrl, { schemaName });
     const recovered = await restartedProcess.claimNext(
       'worker-after-restart',
       1_000,

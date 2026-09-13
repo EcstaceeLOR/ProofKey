@@ -3,22 +3,28 @@ import type { DurableJobStore, RelayJob } from './types.js';
 
 export interface PostgresJobStoreOptions {
   ssl?: boolean;
+  schemaName?: string;
   tableName?: string;
 }
 
 export class PostgresJobStore implements DurableJobStore {
   private readonly pool: Pool;
+  private readonly schema: string;
   private readonly table: string;
   private readonly claimableIndex: string;
   private initialized?: Promise<void>;
 
   constructor(databaseUrl: string, options: PostgresJobStoreOptions = {}) {
     if (!databaseUrl.trim()) throw new Error('DATABASE_URL cannot be empty.');
-    const tableName = options.tableName ?? 'proofkey_relay_jobs';
+    const schemaName = options.schemaName ?? 'proofkey';
+    const tableName = options.tableName ?? 'relay_jobs';
+    if (!/^[a-z][a-z0-9_]{0,62}$/.test(schemaName))
+      throw new Error('Relay database schema name is invalid.');
     if (!/^[a-z][a-z0-9_]{0,62}$/.test(tableName))
       throw new Error('Relay database table name is invalid.');
-    this.table = `"${tableName}"`;
-    this.claimableIndex = `"${tableName}_claimable_idx"`;
+    this.schema = `"${schemaName}"`;
+    this.table = `${this.schema}."${tableName}"`;
+    this.claimableIndex = `${this.schema}."${tableName}_claimable_idx"`;
     const config: PoolConfig = {
       connectionString: databaseUrl,
       max: 5,
@@ -143,6 +149,7 @@ export class PostgresJobStore implements DurableJobStore {
   }
 
   private async migrate(): Promise<void> {
+    await this.pool.query(`CREATE SCHEMA IF NOT EXISTS ${this.schema}`);
     await this.pool.query(
       `CREATE TABLE IF NOT EXISTS ${this.table} (
         source_transaction_hash VARCHAR(66) PRIMARY KEY,
