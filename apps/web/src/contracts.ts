@@ -22,7 +22,9 @@ const registryAbi = [
 ] as const;
 const tokenAbi = [
   'function allowance(address owner,address spender) view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
   'function approve(address spender,uint256 amount) returns (bool)',
+  'function mint(address recipient,uint256 amount)',
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
 ] as const;
@@ -59,13 +61,38 @@ export interface MachineOffer {
 export interface PaymentResult {
   transactionHash: string;
   orderId: string;
+  startTime: bigint;
   expiresAt: bigint;
 }
 
+export interface CheckoutSnapshot {
+  offer: MachineOffer;
+  amount: bigint;
+  tokenBalance: bigint;
+  nativeBalance: bigint;
+  gasRequired: bigint;
+  allowance: bigint;
+  balanceSufficient: boolean;
+  gasSufficient: boolean;
+  needsApproval: boolean;
+  faucetSupported: boolean;
+}
+
+export interface UsageActivity {
+  orderId: string;
+  transactionHash: string;
+  payer: string;
+  beneficiary: string;
+  startTime: bigint;
+  duration: bigint;
+  amount: bigint;
+  blockNumber: number;
+}
+
 export type PaymentUpdate =
-  | { stage: 'approving'; transactionHash?: string }
-  | { stage: 'paying'; transactionHash?: string }
-  | { stage: 'confirming'; transactionHash: string };
+  | { stage: 'approving'; approvalTransactionHash?: string }
+  | { stage: 'paying' }
+  | { stage: 'confirming'; paymentTransactionHash: string };
 
 export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
   const config: AppConfig = {
@@ -131,23 +158,27 @@ export class PaymentClient {
   private readonly creditcoinProvider: JsonRpcProvider;
 
   constructor(private readonly config: AppConfig) {
-    this.readProvider = new JsonRpcProvider(config.sepoliaRpcUrl);
-    this.creditcoinProvider = new JsonRpcProvider(config.creditcoinRpcUrl);
+    this.readProvider = new JsonRpcProvider(
+      config.sepoliaRpcUrl,
+      sepoliaChainId,
+      { staticNetwork: true },
+    );
+    this.creditcoinProvider = new JsonRpcProvider(
+      config.creditcoinRpcUrl,
+      102031,
+      { staticNetwork: true },
+    );
   }
 
-  async loadOffer(): Promise<MachineOffer> {
-    const [sourceNetwork, destinationNetwork] = await Promise.all([
-      this.readProvider.getNetwork(),
-      this.creditcoinProvider.getNetwork(),
+  async loadOffer(machineId = this.config.machineId): Promise<MachineOffer> {
+    const [sourceChainId, destinationChainId] = await Promise.all([
+      this.readProvider.send('eth_chainId', []),
+      this.creditcoinProvider.send('eth_chainId', []),
     ]);
-    if (sourceNetwork.chainId !== BigInt(sepoliaChainId))
-      throw new Error(
-        `Machine RPC is on chain ${sourceNetwork.chainId}; expected Sepolia 11155111.`,
-      );
-    if (destinationNetwork.chainId !== 102031n)
-      throw new Error(
-        `Creditcoin RPC is on chain ${destinationNetwork.chainId}; expected CC3 testnet 102031.`,
-      );
+    if (BigInt(sourceChainId as string) !== BigInt(sepoliaChainId))
+      throw new Error(`Machine RPC is not Ethereum Sepolia ${sepoliaChainId}.`);
+    if (BigInt(destinationChainId as string) !== 102031n)
+      throw new Error('Creditcoin RPC is not CC3 testnet 102031.');
     const registry = new Contract(
       this.config.registryAddress,
       registryAbi,
@@ -159,9 +190,9 @@ export class PaymentClient {
       this.creditcoinProvider,
     );
     const [offer, tokenAddress, machine] = await Promise.all([
-      registry.getFunction('machineOffers')(this.config.machineId),
+      registry.getFunction('machineOffers')(machineId),
       registry.getFunction('paymentToken')(),
-      machineRegistry.getFunction('machines')(this.config.machineId),
+      machineRegistry.getFunction('machines')(machineId),
     ]);
     if (
       getAddress(offer.beneficiary as string) !==
@@ -193,7 +224,51 @@ export class PaymentClient {
     };
   }
 
+  async inspectCheckout(
+    machineId: string,
+    expectedOffer: MachineOffer,
+    durationSeconds: number,
+    account: string,
+  ): Promise<CheckoutSnapshot> {
+    const offer = await this.loadOffer(machineId);
+    assertFreshOffer(expectedOffer, offer);
+    if (!offer.active)
+      throw new Error('This machine is currently unavailable.');
+    const amount = totalForDuration(offer.pricePerSecond, durationSeconds);
+    const token = new Contract(offer.tokenAddress, tokenAbi, this.readProvider);
+    const [tokenBalance, nativeBalance, allowance, faucetSupported, feeData] =
+      await Promise.all([
+        token.getFunction('balanceOf')(account) as Promise<bigint>,
+        this.readProvider.getBalance(account),
+        token.getFunction('allowance')(
+          account,
+          this.config.registryAddress,
+        ) as Promise<bigint>,
+        token
+          .getFunction('mint')
+          .staticCall(account, amount)
+          .then(() => true)
+          .catch(() => false),
+        this.readProvider.getFeeData(),
+      ]);
+    const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n;
+    const gasRequired = gasPrice * (allowance < amount ? 180_000n : 120_000n);
+    return {
+      offer,
+      amount,
+      tokenBalance,
+      nativeBalance,
+      gasRequired,
+      allowance,
+      balanceSufficient: tokenBalance >= amount,
+      gasSufficient: nativeBalance > 0n && nativeBalance >= gasRequired,
+      needsApproval: allowance < amount,
+      faucetSupported,
+    };
+  }
+
   async payForUsage(
+    machineId: string,
     offer: MachineOffer,
     durationSeconds: number,
     onUpdate: (update: PaymentUpdate) => void,
@@ -208,10 +283,19 @@ export class PaymentClient {
       );
     const signer = await browserProvider.getSigner(connectedAccount);
     const account = await signer.getAddress();
-    if (!offer.active)
-      throw new Error('This machine is currently unavailable.');
-
-    const amount = totalForDuration(offer.pricePerSecond, durationSeconds);
+    const checkout = await this.inspectCheckout(
+      machineId,
+      offer,
+      durationSeconds,
+      account,
+    );
+    if (!checkout.balanceSufficient)
+      throw new Error(
+        `Insufficient ${offer.tokenSymbol} balance for this rental.`,
+      );
+    if (!checkout.gasSufficient)
+      throw new Error('Sepolia ETH is required to pay transaction gas.');
+    const amount = checkout.amount;
     const token = new Contract(offer.tokenAddress, tokenAbi, signer);
     const allowance = (await token.getFunction('allowance')(
       account,
@@ -225,7 +309,7 @@ export class PaymentClient {
       );
       onUpdate({
         stage: 'approving',
-        transactionHash: approval.hash as string,
+        approvalTransactionHash: approval.hash as string,
       });
       const approvalReceipt = await approval.wait();
       if (!approvalReceipt || approvalReceipt.status !== 1)
@@ -239,26 +323,116 @@ export class PaymentClient {
       signer,
     );
     const transaction = await registry.getFunction('payForUsage')(
-      this.config.machineId,
+      machineId,
       durationSeconds,
       hexlify(randomBytes(32)),
     );
     const transactionHash = transaction.hash as string;
-    onUpdate({ stage: 'confirming', transactionHash });
+    onUpdate({ stage: 'confirming', paymentTransactionHash: transactionHash });
     const receipt = await transaction.wait();
     if (!receipt || receipt.status !== 1)
       throw new Error('Usage payment reverted.');
 
+    return this.paymentFromReceipt(receipt, transactionHash, machineId);
+  }
+
+  async recoverPayment(transactionHash: string, machineId: string) {
+    const receipt =
+      (await this.readProvider.getTransactionReceipt(transactionHash)) ??
+      (await this.readProvider.waitForTransaction(transactionHash, 1, 120_000));
+    if (!receipt || receipt.status !== 1)
+      throw new Error('Usage payment has not confirmed successfully.');
+    return this.paymentFromReceipt(receipt, transactionHash, machineId);
+  }
+
+  async waitForApproval(transactionHash: string) {
+    const receipt =
+      (await this.readProvider.getTransactionReceipt(transactionHash)) ??
+      (await this.readProvider.waitForTransaction(transactionHash, 1, 120_000));
+    if (!receipt || receipt.status !== 1)
+      throw new Error('Token approval did not confirm successfully.');
+  }
+
+  async mintTestTokens(
+    offer: MachineOffer,
+    recipient: string,
+    amount: bigint,
+    walletProvider: Eip1193Provider,
+  ) {
+    const browserProvider = new BrowserProvider(walletProvider);
+    const network = await browserProvider.getNetwork();
+    if (network.chainId !== BigInt(sepoliaChainId))
+      throw new Error(
+        'Switch to Ethereum Sepolia before requesting test tokens.',
+      );
+    const signer = await browserProvider.getSigner(recipient);
+    const token = new Contract(offer.tokenAddress, tokenAbi, signer);
+    const transaction = await token.getFunction('mint')(recipient, amount);
+    const receipt = await transaction.wait();
+    if (!receipt || receipt.status !== 1)
+      throw new Error('Test-token mint reverted.');
+    return transaction.hash as string;
+  }
+
+  async loadRecentUsage(
+    machineId: string,
+    limit = 5,
+  ): Promise<UsageActivity[]> {
+    const latest = await this.readProvider.getBlockNumber();
+    const logs = await this.readProvider.getLogs({
+      address: this.config.registryAddress,
+      topics: [
+        registryInterface.getEvent('UsagePaid')!.topicHash,
+        null,
+        machineId,
+      ],
+      fromBlock: this.config.sepoliaRegistryDeploymentBlock,
+      toBlock: latest,
+    });
+    return logs
+      .slice(-limit)
+      .reverse()
+      .flatMap((log) => {
+        const event = registryInterface.parseLog(log);
+        if (!event) return [];
+        return [
+          {
+            orderId: event.args.orderId as string,
+            transactionHash: log.transactionHash,
+            payer: getAddress(event.args.payer as string),
+            beneficiary: getAddress(event.args.beneficiary as string),
+            startTime: event.args.startTime as bigint,
+            duration: event.args.duration as bigint,
+            amount: event.args.amount as bigint,
+            blockNumber: log.blockNumber,
+          },
+        ];
+      });
+  }
+
+  private paymentFromReceipt(
+    receipt: {
+      status: number | null;
+      logs: readonly { topics: readonly string[]; data: string }[];
+    },
+    transactionHash: string,
+    machineId: string,
+  ): PaymentResult {
     for (const log of receipt.logs) {
       try {
         const parsed = registryInterface.parseLog(log);
         if (parsed?.name !== 'UsagePaid') continue;
+        if (
+          (parsed.args.machineId as string).toLowerCase() !==
+          machineId.toLowerCase()
+        )
+          throw new Error('Confirmed payment belongs to a different machine.');
+        const startTime = parsed.args.startTime as bigint;
         return {
           transactionHash,
           orderId: parsed.args.orderId as string,
-          expiresAt:
-            (parsed.args.startTime as bigint) +
-            (parsed.args.duration as bigint),
+          startTime,
+          expiresAt: startTime + (parsed.args.duration as bigint),
         };
       } catch {
         // Ignore token-transfer and unrelated receipt logs.
@@ -268,4 +442,18 @@ export class PaymentClient {
       'Confirmed payment did not contain the expected UsagePaid event.',
     );
   }
+}
+
+export function assertFreshOffer(
+  expected: MachineOffer,
+  current: MachineOffer,
+) {
+  if (
+    expected.beneficiary.toLowerCase() !== current.beneficiary.toLowerCase() ||
+    expected.pricePerSecond !== current.pricePerSecond ||
+    expected.tokenAddress.toLowerCase() !== current.tokenAddress.toLowerCase()
+  )
+    throw new Error(
+      'The machine offer changed. Review the latest price and beneficiary before paying.',
+    );
 }

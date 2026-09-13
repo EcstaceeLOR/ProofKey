@@ -17,6 +17,10 @@
     "src/worker.test.ts",
     "src/marketplace.ts",
     "src/marketplace.test.ts",
-    "src/machine-metadata.ts"
+    "src/machine-metadata.ts",
+    "src/rental.ts",
+    "src/rental.test.ts",
+    "src/contracts.ts",
+    "src/vite-env.d.ts"
   ]
 }
