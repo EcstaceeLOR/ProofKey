@@ -2,7 +2,7 @@ import { NetworkRelayAdapter } from './adapter.js';
 import { loadConfig } from './config.js';
 import { ProofRelay } from './relay.js';
 import { JsonConsoleReporter } from './reporter.js';
-import { JsonJobStore } from './store.js';
+import { PostgresJobStore } from './store.js';
 
 async function main(): Promise<void> {
   const transactionHash = process.argv[2];
@@ -13,16 +13,18 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const adapter = new NetworkRelayAdapter(config);
   await adapter.assertNetworks();
-  const relay = new ProofRelay(
-    adapter,
-    new JsonJobStore(config.stateFile),
-    new JsonConsoleReporter(),
-    {
-      maxAttempts: config.retryAttempts,
-      baseDelayMs: config.retryBaseDelayMs,
-    },
-  );
-  await relay.process(transactionHash);
+  const store = new PostgresJobStore(config.databaseUrl, {
+    ssl: config.databaseSsl,
+  });
+  const relay = new ProofRelay(adapter, store, new JsonConsoleReporter(), {
+    maxAttempts: config.retryAttempts,
+    baseDelayMs: config.retryBaseDelayMs,
+  });
+  try {
+    await relay.process(transactionHash);
+  } finally {
+    await store.close();
+  }
 }
 
 main().catch((error: unknown) => {

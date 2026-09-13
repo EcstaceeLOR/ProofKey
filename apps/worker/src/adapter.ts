@@ -30,6 +30,7 @@ export class NetworkRelayAdapter implements RelayAdapter {
   private readonly creditcoinProvider: JsonRpcProvider;
   private readonly proofBuilder: proofProvider.service.ProofBuilder;
   private readonly contract: Contract;
+  private readonly relayer: Wallet;
   private readonly sourceRegistryAddress: string;
 
   constructor(private readonly config: WorkerConfig) {
@@ -39,10 +40,11 @@ export class NetworkRelayAdapter implements RelayAdapter {
       config.sourceChainKey,
       config.proofBuilderUrl,
     );
+    this.relayer = new Wallet(config.workerPrivateKey, this.creditcoinProvider);
     this.contract = new Contract(
       config.proofKeyAscAddress,
       proofKeyAbi,
-      new Wallet(config.workerPrivateKey, this.creditcoinProvider),
+      this.relayer,
     );
     this.sourceRegistryAddress = getAddress(config.sourceRegistryAddress);
   }
@@ -66,6 +68,68 @@ export class NetworkRelayAdapter implements RelayAdapter {
       );
   }
 
+  async readiness(): Promise<{
+    sourceRpc: { status: 'ready' | 'unavailable'; code?: string };
+    creditcoinRpc: { status: 'ready' | 'unavailable'; code?: string };
+    relayer: {
+      status: 'ready' | 'unavailable';
+      code?: string;
+      address: string;
+      balanceWei?: string;
+      minimumBalanceWei: string;
+    };
+  }> {
+    const [source, destination, balance] = await Promise.allSettled([
+      withTimeout(
+        Promise.all([
+          this.sourceProvider.getNetwork(),
+          this.sourceProvider.getBlockNumber(),
+        ]).then(([network]) => network),
+      ),
+      withTimeout(
+        Promise.all([
+          this.creditcoinProvider.getNetwork(),
+          this.creditcoinProvider.getBlockNumber(),
+        ]).then(([network]) => network),
+      ),
+      withTimeout(this.creditcoinProvider.getBalance(this.relayer.address)),
+    ]);
+    const minimum = BigInt(this.config.relayerMinimumBalanceWei);
+    const balanceWei =
+      balance.status === 'fulfilled' ? balance.value : undefined;
+    const funded = balanceWei !== undefined && balanceWei >= minimum;
+    return {
+      sourceRpc:
+        source.status === 'fulfilled' && source.value.chainId === 11155111n
+          ? { status: 'ready' }
+          : {
+              status: 'unavailable',
+              code:
+                source.status === 'fulfilled'
+                  ? 'SOURCE_RPC_WRONG_CHAIN'
+                  : 'SOURCE_RPC_UNAVAILABLE',
+            },
+      creditcoinRpc:
+        destination.status === 'fulfilled' &&
+        destination.value.chainId === 102031n
+          ? { status: 'ready' }
+          : {
+              status: 'unavailable',
+              code:
+                destination.status === 'fulfilled'
+                  ? 'CREDITCOIN_RPC_WRONG_CHAIN'
+                  : 'CREDITCOIN_RPC_UNAVAILABLE',
+            },
+      relayer: {
+        status: funded ? 'ready' : 'unavailable',
+        code: funded ? undefined : 'RELAYER_BALANCE_LOW',
+        address: this.relayer.address,
+        balanceWei: balanceWei?.toString(),
+        minimumBalanceWei: minimum.toString(),
+      },
+    };
+  }
+
   async confirmSourceTransaction(
     transactionHash: string,
   ): Promise<SourceReceipt> {
@@ -81,15 +145,18 @@ export class NetworkRelayAdapter implements RelayAdapter {
     if (receipt.status !== 1)
       throw new PermanentRelayError(
         `Sepolia transaction ${transactionHash} reverted.`,
+        'SOURCE_TRANSACTION_REVERTED',
       );
     if (!receipt.to || getAddress(receipt.to) !== this.sourceRegistryAddress)
       throw new PermanentRelayError(
         `Sepolia transaction target is ${receipt.to ?? 'contract creation'}; expected ${this.sourceRegistryAddress}.`,
+        'SOURCE_CONTRACT_MISMATCH',
       );
     const payment = this.parseUsagePayment(receipt);
     if (payment.payer !== getAddress(receipt.from))
       throw new PermanentRelayError(
         `UsagePaid payer ${payment.payer} does not match transaction sender ${getAddress(receipt.from)}.`,
+        'SOURCE_PAYER_MISMATCH',
       );
     return { blockNumber: receipt.blockNumber, payment };
   }
@@ -167,7 +234,26 @@ export class NetworkRelayAdapter implements RelayAdapter {
     if (payments.length !== 1)
       throw new PermanentRelayError(
         `Expected exactly one UsagePaid event from ${this.sourceRegistryAddress}; found ${payments.length}.`,
+        'USAGE_PAYMENT_EVENT_INVALID',
       );
     return payments[0]!;
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timeout: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error('Readiness probe timed out.')),
+          5_000,
+        );
+        timeout.unref();
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }

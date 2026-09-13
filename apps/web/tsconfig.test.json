@@ -12,6 +12,8 @@
     "src/product.ts",
     "src/product.test.ts",
     "src/wallet/state.ts",
-    "src/wallet/state.test.ts"
+    "src/wallet/state.test.ts",
+    "src/worker.ts",
+    "src/worker.test.ts"
   ]
 }

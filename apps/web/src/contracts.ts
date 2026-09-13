@@ -11,6 +11,7 @@ import {
   type Eip1193Provider,
 } from 'ethers';
 import { totalForDuration } from './flow.js';
+import { normalizeProofWorkerUrl } from './worker.js';
 
 const sepoliaChainId = 11155111;
 const registryAbi = [
@@ -73,9 +74,10 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
     machineRegistryAddress:
       environment.VITE_MACHINE_REGISTRY_ADDRESS?.trim() ?? '',
     machineId: environment.VITE_DEMO_MACHINE_ID?.trim() ?? '',
-    workerUrl: (
-      environment.VITE_PROOF_WORKER_URL ?? 'http://127.0.0.1:8787'
-    ).replace(/\/$/, ''),
+    workerUrl: normalizeProofWorkerUrl(
+      environment.VITE_PROOF_WORKER_URL,
+      environment.PROD,
+    ),
     sepoliaExplorerUrl: (
       environment.VITE_SEPOLIA_EXPLORER_URL ?? 'https://sepolia.etherscan.io'
     ).replace(/\/$/, ''),
