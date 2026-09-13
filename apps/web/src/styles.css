@@ -119,42 +119,17 @@ input:focus-visible {
   text-decoration: none;
 }
 .brand-mark {
-  position: relative;
   display: block;
   width: 34px;
   height: 34px;
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--forest);
+  flex: 0 0 auto;
+  filter: drop-shadow(0 5px 9px rgba(15, 84, 58, 0.2));
 }
-.brand-mark::before,
-.brand-mark::after,
-.brand-mark span {
-  position: absolute;
-  background: var(--lime);
-  content: '';
-}
-.brand-mark::before {
-  top: 8px;
-  left: 9px;
-  width: 7px;
-  height: 18px;
-  border-radius: 4px;
-}
-.brand-mark::after {
-  top: 8px;
-  left: 15px;
-  width: 11px;
-  height: 7px;
-  border-radius: 4px;
-}
-.brand-mark span {
-  top: 17px;
-  left: 16px;
-  width: 12px;
-  height: 7px;
-  transform: rotate(45deg);
-  border-radius: 4px;
+
+.brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .brand.compact {
   font-size: 15px;

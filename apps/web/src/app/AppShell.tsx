@@ -14,6 +14,7 @@ import {
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigation } from 'react-router';
 import { compactHash } from '../product.js';
+import { BrandMark } from '../components/BrandMark.js';
 import { WalletDialog } from '../components/WalletDialog.js';
 import { useRuntime } from './AppProviders.js';
 
@@ -46,9 +47,7 @@ export function AppShell() {
       <div className="ambient ambient-two" />
       <header className="topbar">
         <Link className="brand" to="/" aria-label="ProofKey home">
-          <span className="brand-mark">
-            <span />
-          </span>
+          <BrandMark />
           <span>ProofKey</span>
         </Link>
 
@@ -135,9 +134,7 @@ export function AppShell() {
       <footer className="site-footer">
         <div>
           <span className="brand compact">
-            <span className="brand-mark">
-              <span />
-            </span>
+            <BrandMark />
             ProofKey
           </span>
           <p>Proof-backed access for machines that work in the real world.</p>
