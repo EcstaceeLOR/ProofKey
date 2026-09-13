@@ -1,7 +1,9 @@
 import { Pool, type PoolConfig } from 'pg';
 import type {
+  DeviceHandoff,
   DurableJobStore,
   RelayJob,
+  SignedUsageReceipt,
   StoredMachineMetadata,
 } from './types.js';
 
@@ -17,6 +19,7 @@ export class PostgresJobStore implements DurableJobStore {
   private readonly table: string;
   private readonly claimableIndex: string;
   private readonly metadataTable: string;
+  private readonly handoffTable: string;
   private initialized?: Promise<void>;
 
   constructor(databaseUrl: string, options: PostgresJobStoreOptions = {}) {
@@ -31,6 +34,7 @@ export class PostgresJobStore implements DurableJobStore {
     this.table = `${this.schema}."${tableName}"`;
     this.claimableIndex = `"${tableName}_claimable_idx"`;
     this.metadataTable = `${this.schema}."machine_metadata"`;
+    this.handoffTable = `${this.schema}."device_handoffs"`;
     const config: PoolConfig = {
       connectionString: databaseUrl,
       max: 5,
@@ -138,6 +142,70 @@ export class PostgresJobStore implements DurableJobStore {
       [commitment.toLowerCase()],
     );
     return result.rows[0];
+  }
+
+  async createDeviceHandoff(handoff: DeviceHandoff): Promise<void> {
+    await this.initialize();
+    await this.pool.query(
+      `INSERT INTO ${this.handoffTable}
+        (nonce, handoff, created_at, expires_at)
+       VALUES ($1, $2::jsonb, $3, $4)`,
+      [
+        handoff.nonce.toLowerCase(),
+        JSON.stringify(handoff),
+        handoff.createdAt,
+        handoff.expiresAt,
+      ],
+    );
+  }
+
+  async getDeviceHandoff(nonce: string): Promise<DeviceHandoff | undefined> {
+    await this.initialize();
+    const result = await this.pool.query<{ handoff: DeviceHandoff }>(
+      `SELECT handoff FROM ${this.handoffTable} WHERE nonce = $1`,
+      [nonce.toLowerCase()],
+    );
+    return result.rows[0]?.handoff;
+  }
+
+  async claimDeviceHandoff(
+    nonce: string,
+    claimTokenHash: string,
+    claimedAt: string,
+  ): Promise<DeviceHandoff | undefined> {
+    await this.initialize();
+    const result = await this.pool.query<{ handoff: DeviceHandoff }>(
+      `UPDATE ${this.handoffTable}
+       SET claim_token_hash = $2,
+           handoff = jsonb_set(handoff, '{claimedAt}', to_jsonb($3::text))
+       WHERE nonce = $1 AND claim_token_hash IS NULL
+       RETURNING handoff`,
+      [nonce.toLowerCase(), claimTokenHash, claimedAt],
+    );
+    return result.rows[0]?.handoff;
+  }
+
+  async putDeviceReceipt(
+    nonce: string,
+    claimTokenHash: string,
+    receipt: SignedUsageReceipt,
+  ): Promise<DeviceHandoff | undefined> {
+    await this.initialize();
+    const isStart = receipt.payload.kind === 'start';
+    const path = isStart ? '{startReceipt}' : '{endReceipt}';
+    const prerequisite = isStart
+      ? `handoff->'startReceipt' IS NULL`
+      : `handoff->'startReceipt' IS NOT NULL AND handoff->'endReceipt' IS NULL`;
+    const result = await this.pool.query<{ handoff: DeviceHandoff }>(
+      `UPDATE ${this.handoffTable}
+       SET handoff = jsonb_set(handoff, '${path}', $3::jsonb)
+       WHERE nonce = $1
+         AND claim_token_hash = $2
+         AND ${prerequisite}
+       RETURNING handoff`,
+      [nonce.toLowerCase(), claimTokenHash, JSON.stringify(receipt)],
+    );
+    return result.rows[0]?.handoff;
   }
 
   async save(job: RelayJob): Promise<void> {
@@ -253,6 +321,23 @@ export class PostgresJobStore implements DurableJobStore {
         CONSTRAINT content_digest_format CHECK (content_digest ~ '^0x[0-9a-f]{64}$'),
         CONSTRAINT metadata_commitment_format CHECK (commitment ~ '^0x[0-9a-f]{64}$')
       )`,
+    );
+    await this.pool.query(
+      `CREATE TABLE IF NOT EXISTS ${this.handoffTable} (
+        nonce VARCHAR(64) PRIMARY KEY,
+        handoff JSONB NOT NULL,
+        claim_token_hash VARCHAR(64),
+        created_at TIMESTAMPTZ NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        CONSTRAINT device_handoff_nonce_format CHECK (nonce ~ '^[0-9a-f]{64}$'),
+        CONSTRAINT device_claim_hash_format CHECK (
+          claim_token_hash IS NULL OR claim_token_hash ~ '^[0-9a-f]{64}$'
+        )
+      )`,
+    );
+    await this.pool.query(
+      `CREATE INDEX IF NOT EXISTS "device_handoffs_expiry_idx"
+       ON ${this.handoffTable} (expires_at)`,
     );
   }
 }

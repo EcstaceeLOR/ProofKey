@@ -1,7 +1,9 @@
 import { PermanentRelayError } from './retry.js';
 import type {
+  DeviceHandoff,
   DurableJobStore,
   RelayJob,
+  SignedUsageReceipt,
   StoredMachineMetadata,
 } from './types.js';
 
@@ -16,6 +18,18 @@ export interface JobQueue {
   getMetadataByCommitment(
     commitment: string,
   ): Promise<StoredMachineMetadata | undefined>;
+  createDeviceHandoff(handoff: DeviceHandoff): Promise<void>;
+  getDeviceHandoff(nonce: string): Promise<DeviceHandoff | undefined>;
+  claimDeviceHandoff(
+    nonce: string,
+    claimTokenHash: string,
+    claimedAt: string,
+  ): Promise<DeviceHandoff | undefined>;
+  putDeviceReceipt(
+    nonce: string,
+    claimTokenHash: string,
+    receipt: SignedUsageReceipt,
+  ): Promise<DeviceHandoff | undefined>;
 }
 
 const transactionHashPattern = /^0x[0-9a-fA-F]{64}$/;
@@ -63,5 +77,33 @@ export class RelayQueue implements JobQueue {
 
   getMetadataByCommitment(commitment: string) {
     return this.store.getMetadataByCommitment(commitment);
+  }
+
+  createDeviceHandoff(handoff: DeviceHandoff) {
+    return this.store.createDeviceHandoff(handoff);
+  }
+
+  getDeviceHandoff(nonce: string) {
+    return this.store.getDeviceHandoff(nonce.toLowerCase());
+  }
+
+  claimDeviceHandoff(nonce: string, claimTokenHash: string, claimedAt: string) {
+    return this.store.claimDeviceHandoff(
+      nonce.toLowerCase(),
+      claimTokenHash,
+      claimedAt,
+    );
+  }
+
+  putDeviceReceipt(
+    nonce: string,
+    claimTokenHash: string,
+    receipt: SignedUsageReceipt,
+  ) {
+    return this.store.putDeviceReceipt(
+      nonce.toLowerCase(),
+      claimTokenHash,
+      receipt,
+    );
   }
 }

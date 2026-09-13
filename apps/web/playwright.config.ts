@@ -35,7 +35,6 @@ export default defineConfig({
       VITE_DEMO_MACHINE_ID:
         '0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc',
       VITE_PROOF_WORKER_URL: 'https://relay.invalid',
-      VITE_DEVICE_SIMULATOR_URL: 'http://127.0.0.1:1',
       VITE_WALLETCONNECT_PROJECT_ID: '',
     },
   },

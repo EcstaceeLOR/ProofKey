@@ -1,9 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
-import { Interface, keccak256, toUtf8Bytes } from 'ethers';
+import { Interface, Wallet, hexlify, keccak256, toUtf8Bytes } from 'ethers';
+import {
+  usageReceiptMessage,
+  type UsageReceiptPayload,
+} from '../src/device-session.js';
 
 const machineId =
   '0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc';
-const owner = '0x1114eeafeb92b71babf860e64e4575433a734b6a';
+const controllerWallet = new Wallet(`0x${'01'.repeat(32)}`);
+const owner = controllerWallet.address.toLowerCase();
 const tokenAddress = '0x0000000000000000000000000000000000000003';
 const metadataHash =
   '0x24f58d3fcaa80aa0cbe4c88b0ce7d4a23312fa95ca201300a7313894970e883e';
@@ -47,7 +52,7 @@ test('Explore, machine detail, and checkout form one verified journey', async ({
   await expect(page.getByText('22-ton operating capacity')).toBeVisible();
   const bookingLink = page.getByRole('link', { name: /Book machine time/ });
   await expect(bookingLink).toHaveAttribute('href', `/rent/${machineId}`);
-  await page.goto(`/rent/${machineId}`);
+  await bookingLink.click();
   await expect(page).toHaveURL(new RegExp(`/rent/${machineId}$`));
   await expect(
     page.getByRole('heading', { name: 'Choose operating time' }),
@@ -66,11 +71,13 @@ test('checkout fails closed when registry RPC is unavailable', async ({
   await page.route('https://**.rpc.proofkey.invalid/**', (route) =>
     route.abort(),
   );
-  await page.goto(`/rent/${machineId}`);
+  await page.goto(`/rent/${machineId}`, { waitUntil: 'domcontentloaded' });
   await expect(
     page.getByText('Checkout cannot verify the machine'),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 test('a fresh connected browser recovers active access from chain and relay state', async ({
@@ -102,7 +109,7 @@ test('a fresh connected browser recovers active access from chain and relay stat
   await expect(page.getByText('Machine access active')).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByRole('link', { name: /Open access/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Start session/ })).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Download receipt JSON' }),
   ).toBeVisible();
@@ -222,6 +229,154 @@ test('operator metadata upload fails closed then resumes the confirmed onboardin
   await expect(page.getByText('ONBOARDING COMPLETE')).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test('customer and device browsers complete a one-time signed machine session', async ({
+  browser,
+}) => {
+  const nonce = 'a7'.repeat(32);
+  const sourceHash = `0x${'fa'.repeat(32)}`;
+  const startedAt = '1970-01-01T00:33:20.000Z';
+  const sessionId = keccak256(toUtf8Bytes(`proofkey-device-session:${nonce}`));
+  const startPayload: UsageReceiptPayload = {
+    schema: 'proofkey.usage-receipt.v1',
+    kind: 'start',
+    sessionId,
+    machineId,
+    payer: controllerWallet.address,
+    orderId,
+    nonce,
+    controller: controllerWallet.address,
+    startedAt,
+    endedAt: null,
+    measuredDurationSeconds: 0,
+    accessExpiresAt: '2500',
+  };
+  const endPayload: UsageReceiptPayload = {
+    ...startPayload,
+    kind: 'end',
+    endedAt: startedAt,
+  };
+  const signedMessages = {
+    [hexlify(toUtf8Bytes(usageReceiptMessage(startPayload)))]:
+      await controllerWallet.signMessage(usageReceiptMessage(startPayload)),
+    [hexlify(toUtf8Bytes(usageReceiptMessage(endPayload)))]:
+      await controllerWallet.signMessage(usageReceiptMessage(endPayload)),
+  };
+  let handoff = {
+    schema: 'proofkey.device-handoff.v1' as const,
+    nonce,
+    machineId,
+    payer: controllerWallet.address,
+    orderId,
+    sourceTransactionHash: sourceHash,
+    accessExpiresAt: '2500',
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 120_000).toISOString(),
+    claimedAt: undefined as string | undefined,
+    startReceipt: undefined as
+      { payload: UsageReceiptPayload; signature: string } | undefined,
+    endReceipt: undefined as
+      { payload: UsageReceiptPayload; signature: string } | undefined,
+  };
+  const claimToken = 'c8'.repeat(32);
+
+  const customerContext = await browser.newContext();
+  const deviceContext = await browser.newContext();
+  const replayContext = await browser.newContext();
+  const customer = await customerContext.newPage();
+  const device = await deviceContext.newPage();
+  const replay = await replayContext.newPage();
+  for (const page of [customer, device, replay]) {
+    await installWallet(page, signedMessages);
+    await mockMarketplaceRpc(page, true);
+    await mockDeviceRelay(
+      page,
+      () => handoff,
+      (next) => (handoff = next),
+      claimToken,
+    );
+  }
+
+  await customer.goto(`/sessions/${sourceHash}`);
+  await customer.getByRole('button', { name: 'Connect renter wallet' }).click();
+  await customer.getByRole('button', { name: /Playwright Wallet/ }).click();
+  await customer.getByRole('button', { name: 'Close wallet dialog' }).click();
+  await customer.getByRole('button', { name: 'Generate one-time QR' }).click();
+  await expect(
+    customer.getByAltText('One-time device handoff QR code'),
+  ).toBeVisible({ timeout: 15_000 });
+
+  const deviceUrl = `/device/${machineId}?handoff=${nonce}&payer=${controllerWallet.address}`;
+  await replay.goto(
+    `/device/0x${'99'.repeat(32)}?handoff=${nonce}&payer=${controllerWallet.address}`,
+  );
+  await expect(
+    replay.getByText(
+      'QR is bound to a different machine. Device remains locked.',
+    ),
+  ).toBeVisible({ timeout: 15_000 });
+  await replay.goto(
+    `/device/${machineId}?handoff=${nonce}&payer=0x2222222222222222222222222222222222222222`,
+  );
+  await expect(
+    replay.getByText(
+      'QR is bound to a different payer. Device remains locked.',
+    ),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await device.goto(deviceUrl);
+  await expect(device.getByText('Verified · ready')).toBeVisible({
+    timeout: 15_000,
+  });
+  await device
+    .getByRole('button', { name: 'Connect controller wallet' })
+    .click();
+  await device.getByRole('button', { name: /Playwright Wallet/ }).click();
+  await device.getByRole('button', { name: 'Close wallet dialog' }).click();
+  await device
+    .getByRole('button', { name: /Sign start & enable machine/ })
+    .click();
+  await expect(device.getByText('Equipment enabled')).toBeVisible({
+    timeout: 15_000,
+  });
+  await device.reload();
+  await expect(device.getByText('Equipment enabled')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(
+    customer.getByRole('heading', { name: 'Machine session active' }),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await device
+    .getByRole('button', { name: /Stop & sign usage receipt/ })
+    .click();
+  await expect(device.getByText('Session stopped')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(
+    customer.getByRole('heading', { name: 'Usage stopped and sealed' }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    customer.getByText('Controller signature verified locally.'),
+  ).toHaveCount(2);
+
+  await customer.goto('/activity');
+  await expect(customer.getByText('Signed usage receipt')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(customer.getByText('Controller verified locally')).toBeVisible();
+
+  await replay.goto(deviceUrl);
+  await expect(
+    replay.getByText('This QR handoff was already claimed by a device.'),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await Promise.all([
+    customerContext.close(),
+    deviceContext.close(),
+    replayContext.close(),
+  ]);
 });
 
 async function mockMarketplaceRpc(page: Page, includeUsage = false) {
@@ -499,9 +654,12 @@ function creditcoinBlock() {
   };
 }
 
-async function installWallet(page: Page) {
+async function installWallet(
+  page: Page,
+  signedMessages: Record<string, string> = {},
+) {
   await page.addInitScript(
-    ({ approvedAccount }) => {
+    ({ approvedAccount, signatures }) => {
       type Listener = (...arguments_: unknown[]) => void;
       const listeners = new Map<string, Set<Listener>>();
       let chainId = '0xaa36a7';
@@ -539,6 +697,15 @@ async function installWallet(page: Page) {
           if (method === 'wallet_addEthereumChain') {
             chainId = (params?.[0] as { chainId: string }).chainId;
             return null;
+          }
+          if (method === 'personal_sign') {
+            const message = String(params?.[0] ?? '').toLowerCase();
+            const signature = signatures[message];
+            if (!signature)
+              throw Object.assign(new Error('Unexpected message to sign'), {
+                code: 4001,
+              });
+            return signature;
           }
           if (method === 'eth_sendTransaction') {
             if (localStorage.getItem('reject-next-transaction')) {
@@ -632,8 +799,94 @@ async function installWallet(page: Page) {
       window.addEventListener('eip6963:requestProvider', announce);
       queueMicrotask(announce);
     },
-    { approvedAccount: owner },
+    { approvedAccount: owner, signatures: signedMessages },
   );
+}
+
+async function mockDeviceRelay(
+  page: Page,
+  read: () => {
+    schema: 'proofkey.device-handoff.v1';
+    nonce: string;
+    machineId: string;
+    payer: string;
+    orderId: string;
+    sourceTransactionHash: string;
+    accessExpiresAt: string;
+    createdAt: string;
+    expiresAt: string;
+    claimedAt?: string;
+    startReceipt?: { payload: UsageReceiptPayload; signature: string };
+    endReceipt?: { payload: UsageReceiptPayload; signature: string };
+  },
+  write: (handoff: ReturnType<typeof read>) => void,
+  claimToken: string,
+) {
+  await page.route('https://relay.invalid/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const current = read();
+    if (url.pathname.startsWith('/jobs/'))
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sourceTransactionHash: current.sourceTransactionHash,
+          phase: 'completed',
+          orderId: current.orderId,
+          machineId: current.machineId,
+          payer: current.payer,
+          accessExpiresAt: current.accessExpiresAt,
+          creditcoinTransactionHash: `0x${'ab'.repeat(32)}`,
+        }),
+      });
+    if (url.pathname === '/device-handoffs' && request.method() === 'POST')
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(current),
+      });
+    if (url.pathname.endsWith('/claim') && request.method() === 'POST') {
+      if (current.claimedAt)
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: {
+              message: 'This QR handoff was already claimed by a device.',
+            },
+          }),
+        });
+      const claimed = { ...current, claimedAt: new Date().toISOString() };
+      write(claimed);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ handoff: claimed, claimToken }),
+      });
+    }
+    if (url.pathname.endsWith('/receipts') && request.method() === 'POST') {
+      const receipt = request.postDataJSON() as {
+        payload: UsageReceiptPayload;
+        signature: string;
+      };
+      const next =
+        receipt.payload.kind === 'start'
+          ? { ...current, startReceipt: receipt }
+          : { ...current, endReceipt: receipt };
+      write(next);
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(next),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(current),
+    });
+  });
 }
 
 function cc3Registration() {

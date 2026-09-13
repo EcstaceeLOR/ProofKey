@@ -1692,6 +1692,32 @@ input:focus-visible {
   font-style: normal;
   line-height: 1.4;
 }
+.rental-signed-proof {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: center;
+  gap: 2px 6px;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 7px 9px;
+  border: 1px solid #d5ded6;
+  border-radius: 9px;
+  background: #f4f7f2;
+  color: #69746d;
+}
+.rental-signed-proof svg { grid-row: span 2; }
+.rental-signed-proof span { font-size: 8px; font-weight: 800; }
+.rental-signed-proof small { font-size: 7px; }
+.rental-signed-proof.verified {
+  color: #177245;
+  border-color: #bfe3cd;
+  background: #eaf8ef;
+}
+.rental-signed-proof.invalid {
+  color: #a13d31;
+  border-color: #f0c6bf;
+  background: #fff0ed;
+}
 .rental-status {
   width: fit-content;
   padding: 4px 7px;
@@ -3991,5 +4017,563 @@ input:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Secure customer-to-device session */
+.handoff-intro {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+  align-items: center;
+  overflow: hidden;
+  min-height: 390px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.handoff-intro > div:last-child {
+  max-width: 620px;
+  padding: 48px;
+}
+.handoff-intro h2,
+.qr-ticket h2,
+.session-evidence h2,
+.terminal-lock-panel h2,
+.terminal-audit-panel h2 {
+  margin: 8px 0 12px;
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+  line-height: 1;
+}
+.handoff-intro p:not(.eyebrow) {
+  max-width: 560px;
+  margin: 0 0 24px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.handoff-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding: 40px;
+  background:
+    radial-gradient(circle at 45% 50%, rgb(75 236 153 / 18%), transparent 42%),
+    linear-gradient(145deg, #07150f, #0c2419);
+}
+.handoff-visual span {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  border: 1px solid rgb(104 255 180 / 36%);
+  border-radius: 22px;
+  color: var(--lime);
+  background: rgb(255 255 255 / 5%);
+  box-shadow: inset 0 0 30px rgb(88 244 163 / 6%);
+}
+.handoff-visual i {
+  width: clamp(18px, 4vw, 52px);
+  height: 1px;
+  background: linear-gradient(90deg, var(--lime), rgb(105 255 183 / 12%));
+}
+.session-grid {
+  display: grid;
+  grid-template-columns: minmax(330px, 0.85fr) minmax(420px, 1.15fr);
+  gap: 22px;
+}
+.qr-ticket,
+.session-evidence {
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 25px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.qr-ticket {
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 35%, rgb(91 224 153 / 9%), transparent 35%),
+    var(--surface);
+}
+.qr-ticket-head,
+.session-live-head,
+.terminal-audit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.qr-ticket-head > span,
+.terminal-network {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font: 700 0.69rem/1 var(--mono);
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+.qr-ticket-head > span.live,
+.qr-ticket-head > span.claimed {
+  color: #087342;
+  border-color: rgb(20 151 88 / 24%);
+  background: #e8f8ef;
+}
+.qr-ticket-head > span.expired {
+  color: #a84235;
+  background: #fff0ed;
+}
+.handoff-qr {
+  display: block;
+  width: min(100%, 320px);
+  margin: 18px auto 26px;
+  padding: 10px;
+  border: 1px solid #d9e5da;
+  border-radius: 18px;
+  background: #f4f7ee;
+}
+.claimed-device-mark {
+  display: grid;
+  min-height: 260px;
+  margin: 18px 0 26px;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  border: 1px dashed rgb(27 151 91 / 35%);
+  border-radius: 18px;
+  color: #117b49;
+  background: #effaf3;
+}
+.ticket-binding {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+}
+.ticket-binding > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.ticket-binding > div:last-child {
+  border: 0;
+}
+.ticket-binding span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.ticket-binding code {
+  font-size: 0.74rem;
+}
+.ticket-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.ticket-actions button,
+.ticket-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 7px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 700;
+  text-decoration: none;
+}
+.session-evidence {
+  background: #07150f;
+  color: #f4f8f4;
+}
+.session-evidence .eyebrow {
+  color: #79efa9;
+}
+.session-live-head > svg {
+  color: #79efa9;
+}
+.spin-slow {
+  animation: spin 4s linear infinite;
+}
+.session-timeline {
+  position: relative;
+  display: grid;
+  gap: 0;
+  margin: 26px 0;
+  padding: 0;
+  list-style: none;
+}
+.session-timeline li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 12px;
+  min-height: 64px;
+  color: #75887d;
+}
+.session-timeline li > span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid #30443a;
+  border-radius: 50%;
+  background: #07150f;
+}
+.session-timeline li:not(:last-child) > span::after {
+  position: absolute;
+  top: 23px;
+  left: 10px;
+  width: 1px;
+  height: 41px;
+  content: '';
+  background: #30443a;
+}
+.session-timeline li.done {
+  color: #ecfff3;
+}
+.session-timeline li.done > span {
+  color: #041009;
+  border-color: #6ef2a5;
+  background: #6ef2a5;
+}
+.session-timeline li div {
+  display: grid;
+  gap: 5px;
+}
+.session-timeline small {
+  color: #85998e;
+  font-family: var(--mono);
+}
+.receipt-stack {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.signed-receipt {
+  padding: 15px;
+  border: 1px solid #254235;
+  border-radius: 13px;
+  background: #0c2016;
+}
+.signed-receipt > div {
+  display: flex;
+  justify-content: space-between;
+}
+.signed-receipt span {
+  color: #91a69a;
+  font: 700 0.68rem var(--mono);
+  letter-spacing: 0.08em;
+}
+.signed-receipt p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+  font-size: 0.78rem;
+}
+.signed-receipt p.verified {
+  color: #79efa9;
+}
+.signed-receipt button {
+  padding: 0;
+  border: 0;
+  color: #d6e8dc;
+  background: transparent;
+  font-weight: 700;
+}
+.session-evidence .text-link {
+  color: #8ef3b6;
+}
+
+/* Independent device terminal */
+.terminal-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.05fr) minmax(380px, 0.95fr);
+  overflow: hidden;
+  border: 1px solid #203e30;
+  border-radius: 28px;
+  background: #06120c;
+  box-shadow: 0 30px 80px rgb(2 13 8 / 22%);
+}
+.terminal-lock-panel {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 620px;
+  padding: 50px;
+  color: white;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 38%, rgb(94 244 159 / 13%), transparent 33%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 44px,
+      rgb(255 255 255 / 2%) 45px
+    ),
+    #06120c;
+}
+.terminal-lock-orbit {
+  position: relative;
+  display: grid;
+  width: 190px;
+  height: 190px;
+  margin-bottom: 28px;
+  place-items: center;
+}
+.terminal-lock-orbit > span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(121 240 171 / 22%);
+  border-radius: 50%;
+  animation: terminal-pulse 3s ease-in-out infinite;
+}
+.terminal-lock-orbit > span:nth-child(2) {
+  inset: 20px;
+  animation-delay: -1.5s;
+}
+.terminal-lock-orbit > div {
+  position: relative;
+  display: grid;
+  width: 104px;
+  height: 104px;
+  place-items: center;
+  border: 1px solid #315441;
+  border-radius: 32px;
+  color: #7bf0ac;
+  background: #0c2116;
+  box-shadow: 0 0 45px rgb(91 235 152 / 11%);
+}
+@keyframes terminal-pulse {
+  50% {
+    transform: scale(0.95);
+    opacity: 0.45;
+  }
+}
+.terminal-state {
+  padding: 7px 11px;
+  border: 1px solid #365744;
+  border-radius: 999px;
+  color: #92ad9d;
+  font: 800 0.68rem var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.terminal-state.unlocked,
+.terminal-state.active {
+  color: #75efa8;
+  border-color: #267a4b;
+  background: rgb(50 194 111 / 8%);
+}
+.terminal-state.expiring {
+  color: #ffd56d;
+  border-color: #7a6326;
+}
+.terminal-state.fail_closed,
+.terminal-state.expired {
+  color: #ff988a;
+  border-color: #754137;
+}
+.terminal-lock-panel h2 {
+  margin-top: 17px;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+}
+.terminal-lock-panel > p {
+  max-width: 470px;
+  margin: 0;
+  color: #8fa398;
+  line-height: 1.6;
+}
+.session-clock {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 5px 10px;
+  margin: 25px 0 5px;
+  padding: 14px 18px;
+  border: 1px solid #294a38;
+  border-radius: 15px;
+}
+.session-clock strong {
+  font: 700 1.55rem var(--mono);
+  letter-spacing: 0.06em;
+}
+.session-clock span {
+  grid-column: 2;
+  color: #82978b;
+  font-size: 0.7rem;
+  text-align: left;
+  text-transform: uppercase;
+}
+.terminal-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 275px;
+  min-height: 52px;
+  margin-top: 24px;
+  border: 0;
+  border-radius: 13px;
+  font-weight: 800;
+}
+.terminal-action.start {
+  color: #05140c;
+  background: #75efa8;
+}
+.terminal-action.stop {
+  color: #ffb1a5;
+  border: 1px solid #693c35;
+  background: #21110f;
+}
+.terminal-audit-panel {
+  padding: 38px;
+  color: #eaf3ed;
+  border-left: 1px solid #203e30;
+  background: #0b1d14;
+}
+.terminal-audit-panel h2 {
+  font-size: 2rem;
+}
+.terminal-audit-head > svg {
+  color: #72eca4;
+}
+.terminal-audit-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 0;
+  border-bottom: 1px solid #20372b;
+}
+.terminal-audit-row > span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 50%;
+}
+.terminal-audit-row.pass > span {
+  color: #04140b;
+  background: #70efa5;
+}
+.terminal-audit-row.fail > span {
+  color: #ff9a8d;
+  background: #38201d;
+}
+.terminal-audit-row div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.terminal-audit-row small {
+  color: #84988d;
+  font-family: var(--mono);
+}
+.controller-gate {
+  margin-top: 22px;
+}
+.controller-confirmed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid #2a6c47;
+  border-radius: 11px;
+  color: #76eea8;
+  background: #102d1e;
+}
+.terminal-receipts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+.terminal-receipts > div {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 3px 7px;
+  padding: 12px;
+  border: 1px solid #2a3d33;
+  border-radius: 11px;
+  color: #71857a;
+}
+.terminal-receipts > div.present {
+  color: #bde8ce;
+  border-color: #2a6745;
+}
+.terminal-receipts span {
+  grid-row: span 2;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.terminal-receipts small {
+  color: #71857a;
+}
+
+@media (max-width: 900px) {
+  .handoff-intro,
+  .session-grid,
+  .terminal-grid {
+    grid-template-columns: 1fr;
+  }
+  .handoff-visual {
+    min-height: 220px;
+  }
+  .terminal-audit-panel {
+    border-top: 1px solid #203e30;
+    border-left: 0;
+  }
+  .terminal-lock-panel {
+    min-height: 520px;
+  }
+}
+@media (max-width: 600px) {
+  .handoff-intro > div:last-child,
+  .qr-ticket,
+  .session-evidence,
+  .terminal-lock-panel,
+  .terminal-audit-panel {
+    padding: 24px;
+  }
+  .handoff-visual span {
+    width: 58px;
+    height: 58px;
+    border-radius: 17px;
+  }
+  .ticket-actions,
+  .terminal-audit-row div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .terminal-lock-panel {
+    min-height: 470px;
+  }
+  .terminal-lock-orbit {
+    width: 150px;
+    height: 150px;
+  }
+  .terminal-action {
+    min-width: 100%;
+  }
+  .terminal-receipts {
+    grid-template-columns: 1fr;
   }
 }

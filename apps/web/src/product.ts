@@ -4,6 +4,7 @@ export const productRoutes = [
   '/machines/:machineId',
   '/rent/:machineId',
   '/activity',
+  '/sessions/:sourceTransactionHash',
   '/proofs/:sourceTxHash',
   '/operator',
   '/device/:machineId',

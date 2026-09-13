@@ -27,6 +27,8 @@
     "src/proof.ts",
     "src/proof.test.ts",
     "src/operator.ts",
-    "src/operator.test.ts"
+    "src/operator.test.ts",
+    "src/device-session.ts",
+    "src/device-session.test.ts"
   ]
 }

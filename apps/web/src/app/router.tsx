@@ -16,6 +16,10 @@ export const router = createBrowserRouter([
       { path: 'rent/:machineId', lazy: () => import('../pages/RentPage.js') },
       { path: 'activity', lazy: () => import('../pages/ActivityPage.js') },
       {
+        path: 'sessions/:sourceTransactionHash',
+        lazy: () => import('../pages/SessionPage.js'),
+      },
+      {
         path: 'proofs/:sourceTxHash',
         lazy: () => import('../pages/ProofPage.js'),
       },

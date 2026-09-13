@@ -609,19 +609,27 @@ export function Component() {
               <ArrowRight size={19} />
             </button>
           ) : session.phase === 'access' ? (
-            <button
-              className="checkout-action success"
-              type="button"
-              onClick={() => {
-                localStorage.removeItem(storageKey);
-                setSession(createRentalSession(machineId));
-                setSnapshot(undefined);
-                setJob(undefined);
-              }}
-            >
-              <span>Access unlocked · Start another rental</span>
-              <Check size={19} />
-            </button>
+            <div className="checkout-action-stack">
+              <Link
+                className="checkout-action success"
+                to={`/sessions/${session.sourceTransactionHash}`}
+              >
+                <span>Open secure device handoff</span>
+                <Check size={19} />
+              </Link>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem(storageKey);
+                  setSession(createRentalSession(machineId));
+                  setSnapshot(undefined);
+                  setJob(undefined);
+                }}
+              >
+                Start another rental
+              </button>
+            </div>
           ) : (
             <button
               className="checkout-action"

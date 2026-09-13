@@ -60,6 +60,37 @@ test(
         ?.uri,
       metadata.uri,
     );
+    const handoff = {
+      schema: 'proofkey.device-handoff.v1' as const,
+      nonce: '56'.repeat(32),
+      machineId: `0x${'67'.repeat(32)}`,
+      payer: '0x1111111111111111111111111111111111111111',
+      orderId: `0x${'78'.repeat(32)}`,
+      sourceTransactionHash: hash,
+      accessExpiresAt: '2000000000',
+      createdAt: '2026-09-13T12:00:00.000Z',
+      expiresAt: '2026-09-13T12:02:00.000Z',
+    };
+    await restartedProcess.createDeviceHandoff(handoff);
+    assert.equal(
+      (await restartedProcess.getDeviceHandoff(handoff.nonce))?.orderId,
+      handoff.orderId,
+    );
+    assert.ok(
+      await restartedProcess.claimDeviceHandoff(
+        handoff.nonce,
+        '89'.repeat(32),
+        '2026-09-13T12:00:10.000Z',
+      ),
+    );
+    assert.equal(
+      await restartedProcess.claimDeviceHandoff(
+        handoff.nonce,
+        '90'.repeat(32),
+        '2026-09-13T12:00:11.000Z',
+      ),
+      undefined,
+    );
     const recovered = await restartedProcess.claimNext(
       'worker-after-restart',
       1_000,

@@ -17,6 +17,13 @@ import {
   type RentalRecord,
 } from '../activity.js';
 import { DataState, PageHeading } from '../components/ProductUI.js';
+import type { AppConfig } from '../contracts.js';
+import {
+  CreditcoinDeviceReader,
+  DeviceHandoffClient,
+  customerHandoffStorageKey,
+  verifyUsageReceipt,
+} from '../device-session.js';
 import { compactHash, machinePath, proofPath, rentPath } from '../product.js';
 
 const tabs: Array<{ value: 'all' | RentalLifecycle; label: string }> = [
@@ -287,6 +294,7 @@ function RentalRow({
           <Countdown expiresAt={record.expiresAt} />
         )}
         {record.diagnostic && <em>{record.diagnostic}</em>}
+        <RentalReceiptEvidence record={record} config={config} />
       </div>
       <div className="rental-evidence">
         <a
@@ -311,8 +319,11 @@ function RentalRow({
       </div>
       <div className="activity-actions">
         {record.status === 'active' ? (
-          <Link className="button primary" to={`/device/${record.machineId}`}>
-            Open access <ArrowRight size={14} />
+          <Link
+            className="button primary"
+            to={`/sessions/${record.sourceTransactionHash}`}
+          >
+            Start session <ArrowRight size={14} />
           </Link>
         ) : record.status === 'expired' ? (
           <Link className="button secondary" to={rentPath(record.machineId)}>
@@ -337,6 +348,60 @@ function RentalRow({
         </button>
       </div>
     </article>
+  );
+}
+
+function RentalReceiptEvidence({
+  record,
+  config,
+}: {
+  record: RentalRecord;
+  config: AppConfig;
+}) {
+  const nonce = localStorage.getItem(
+    customerHandoffStorageKey(record.sourceTransactionHash),
+  );
+  const evidence = useQuery({
+    queryKey: ['signed-usage-receipt', nonce],
+    queryFn: async () => {
+      const handoff = await new DeviceHandoffClient(config.workerUrl).get(
+        nonce!,
+      );
+      const authorization = await new CreditcoinDeviceReader(config).read(
+        handoff.machineId,
+        handoff.payer,
+      );
+      const receipt = handoff.endReceipt ?? handoff.startReceipt;
+      return {
+        handoff,
+        receipt,
+        verification: receipt
+          ? verifyUsageReceipt(receipt, handoff, authorization.controller)
+          : undefined,
+      };
+    },
+    enabled: Boolean(nonce),
+    staleTime: 4_000,
+    refetchInterval: 5_000,
+    retry: false,
+  });
+  if (!evidence.data?.receipt) return null;
+  return (
+    <div
+      className={`rental-signed-proof ${evidence.data.verification?.valid ? 'verified' : 'invalid'}`}
+    >
+      <ShieldCheck size={13} />
+      <span>
+        {evidence.data.handoff.endReceipt
+          ? 'Signed usage receipt'
+          : 'Signed start receipt'}
+      </span>
+      <small>
+        {evidence.data.verification?.valid
+          ? 'Controller verified locally'
+          : 'Signature verification failed'}
+      </small>
+    </div>
   );
 }
 

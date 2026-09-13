@@ -4,21 +4,33 @@ The relay exposes a small HTTPS ingestion/status API and runs proof execution in
 
 ## API
 
-| Route                             | Purpose                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------- |
-| `GET /health`                     | Process liveness only; never includes configuration or secrets.             |
-| `GET /ready`                      | Separate database, Sepolia RPC, Creditcoin RPC, and relayer-balance checks. |
-| `POST /jobs`                      | Idempotently enqueue `{ "transactionHash": "0x…" }`.                        |
-| `GET /jobs/:transactionHash`      | Read the public proof phase, result, or structured failure.                 |
-| `GET /proofs/:identifier`         | Search by source transaction, order, query, or CC3 transaction.             |
-| `POST /metadata`                  | Persist a canonical machine metadata document by content digest.            |
-| `GET /metadata/:digest`           | Read immutable content-addressed machine metadata.                          |
-| `GET /metadata/commitments/:hash` | Resolve metadata from its Creditcoin URI commitment.                        |
+| Route                                   | Purpose                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /health`                           | Process liveness only; never includes configuration or secrets.             |
+| `GET /ready`                            | Separate database, Sepolia RPC, Creditcoin RPC, and relayer-balance checks. |
+| `POST /jobs`                            | Idempotently enqueue `{ "transactionHash": "0x…" }`.                        |
+| `GET /jobs/:transactionHash`            | Read the public proof phase, result, or structured failure.                 |
+| `GET /proofs/:identifier`               | Search by source transaction, order, query, or CC3 transaction.             |
+| `POST /metadata`                        | Persist a canonical machine metadata document by content digest.            |
+| `GET /metadata/:digest`                 | Read immutable content-addressed machine metadata.                          |
+| `GET /metadata/commitments/:hash`       | Resolve metadata from its Creditcoin URI commitment.                        |
+| `POST /device-handoffs`                 | Create a two-minute handoff from a completed source transaction.            |
+| `GET /device-handoffs/:nonce`           | Read public handoff state and signed usage receipts.                        |
+| `POST /device-handoffs/:nonce/claim`    | Atomically claim the QR once and return the device-only claim token.        |
+| `POST /device-handoffs/:nonce/receipts` | Persist a controller-signed start or end receipt in strict order.           |
 
 Proof responses contain only public receipt, Attestcoin, relay-phase, and
 Creditcoin execution fields. Every response passes a recursive secret-field
-guard before serialization; RPC URLs, private keys, and internal paths are
+guard before serialization; RPC URLs, private keys, claim-token hashes, and internal paths are
 never part of the public schema.
+
+Device handoffs are also durable PostgreSQL records. The QR carries only the
+public nonce and route binding. Claiming creates a random device-only token,
+stores only its SHA-256 hash, and atomically rejects every later claim. Receipt
+payloads bind the machine ID, payer, order ID, nonce, access expiry, start/end
+timestamps, and measured duration. The relay verifies the declared controller
+signature before persisting either receipt; the customer additionally checks
+that signer against `MachineRegistry.controller` directly from Creditcoin.
 
 Only browser origins listed in `FRONTEND_ORIGINS` receive CORS access. Enqueue requests are bounded per client by `RELAY_RATE_LIMIT_REQUESTS` and `RELAY_RATE_LIMIT_WINDOW_MS`.
 

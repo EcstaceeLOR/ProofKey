@@ -27,7 +27,6 @@ interface ImportMetaEnv {
   readonly VITE_PROOF_WORKER_URL?: string;
   readonly VITE_SEPOLIA_EXPLORER_URL?: string;
   readonly VITE_CREDITCOIN_EXPLORER_URL?: string;
-  readonly VITE_DEVICE_SIMULATOR_URL?: string;
   readonly VITE_DEMO_MACHINE_NAME?: string;
   readonly VITE_DEMO_MACHINE_LOCATION?: string;
   readonly VITE_MACHINE_REGISTRY_DEPLOYMENT_BLOCK?: string;
