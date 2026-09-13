@@ -19,10 +19,15 @@ const paymentInterface = new Interface([
   'function machineOffers(bytes32) view returns (address beneficiary,uint128 pricePerSecond,bool active)',
   'function paymentToken() view returns (address)',
   'function owner() view returns (address)',
+  'function payForUsage(bytes32 machineId,uint64 duration,bytes32 paymentNonce) returns (bytes32 orderId)',
 ]);
 const tokenInterface = new Interface([
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address,address) view returns (uint256)',
+  'function approve(address,uint256) returns (bool)',
+  'function mint(address,uint256)',
 ]);
 const usageInterface = new Interface([
   'event UsagePaid(bytes32 indexed orderId,bytes32 indexed machineId,address indexed payer,address beneficiary,uint64 startTime,uint64 duration,uint256 amount)',
@@ -231,6 +236,68 @@ test('operator metadata upload fails closed then resumes the confirmed onboardin
   });
 });
 
+test('mocked payment proves access, unlocks, and resumes after refresh', async ({
+  page,
+}) => {
+  await installWallet(page);
+  await mockMarketplaceRpc(page);
+  let polls = 0;
+  await page.route('https://relay.invalid/**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'POST')
+      return route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sourceTransactionHash: `0x${'02'.padStart(64, '0')}`,
+          phase: 'queued',
+        }),
+      });
+    polls += 1;
+    const completed = polls >= 2;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        sourceTransactionHash: `0x${'02'.padStart(64, '0')}`,
+        phase: completed ? 'completed' : 'proof_generation',
+        orderId,
+        machineId,
+        payer: owner,
+        accessExpiresAt: '2500',
+        creditcoinTransactionHash: completed
+          ? `0x${'ab'.repeat(32)}`
+          : undefined,
+      }),
+    });
+  });
+
+  await page.goto(`/rent/${machineId}`);
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
+  await page.getByRole('button', { name: /Playwright Wallet/ }).click();
+  await page.getByRole('button', { name: 'Close wallet dialog' }).click();
+  await page.getByRole('button', { name: 'Review exact rental' }).click();
+  await page.getByRole('button', { name: 'Check balance & allowance' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Verify wallet readiness' }),
+  ).toBeVisible({ timeout: 15_000 });
+  await page
+    .getByRole('button', { name: 'Continue to secure payment' })
+    .click();
+  await page.getByRole('button', { name: /Approve if needed & pay/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Machine access ready' }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole('link', { name: 'Open secure device handoff' }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Machine access ready' }),
+  ).toBeVisible({ timeout: 15_000 });
+});
+
 test('customer and device browsers complete a one-time signed machine session', async ({
   browser,
 }) => {
@@ -414,6 +481,10 @@ function rpcResult(
     result = isCreditcoin ? '0x18e8f' : '0xaa36a7';
   else if (rpc.method === 'eth_blockNumber')
     result = isCreditcoin ? '0x539000' : '0xb26c00';
+  else if (rpc.method === 'eth_getBalance') result = '0xde0b6b3a7640000';
+  else if (rpc.method === 'eth_gasPrice') result = '0x3b9aca00';
+  else if (rpc.method === 'eth_maxPriorityFeePerGas') result = '0x3b9aca00';
+  else if (rpc.method === 'eth_estimateGas') result = '0x1d4c0';
   else if (rpc.method === 'eth_getTransactionByHash')
     result = sourceTransaction(rpc.params?.[0] as string);
   else if (rpc.method === 'eth_getTransactionReceipt')
@@ -479,7 +550,25 @@ function rpcResult(
       )
         ? paymentInterface.encodeFunctionResult('owner', [owner])
         : paymentInterface.encodeFunctionResult('paymentToken', [tokenAddress]);
-    else if (
+    else if (target.endsWith('03')) {
+      if (
+        call.data.startsWith(tokenInterface.getFunction('balanceOf')!.selector)
+      )
+        result = tokenInterface.encodeFunctionResult('balanceOf', [10n ** 18n]);
+      else if (
+        call.data.startsWith(tokenInterface.getFunction('allowance')!.selector)
+      )
+        result = tokenInterface.encodeFunctionResult('allowance', [0n]);
+      else if (
+        call.data.startsWith(tokenInterface.getFunction('decimals')!.selector)
+      )
+        result = tokenInterface.encodeFunctionResult('decimals', [6]);
+      else if (
+        call.data.startsWith(tokenInterface.getFunction('symbol')!.selector)
+      )
+        result = tokenInterface.encodeFunctionResult('symbol', ['pkUSDC']);
+      else result = '0x';
+    } else if (
       call.data.startsWith(tokenInterface.getFunction('decimals')!.selector)
     )
       result = tokenInterface.encodeFunctionResult('decimals', [6]);
@@ -659,7 +748,7 @@ async function installWallet(
   signedMessages: Record<string, string> = {},
 ) {
   await page.addInitScript(
-    ({ approvedAccount, signatures }) => {
+    ({ approvedAccount, signatures, paidUsageLog, paySelector }) => {
       type Listener = (...arguments_: unknown[]) => void;
       const listeners = new Map<string, Set<Listener>>();
       let chainId = '0xaa36a7';
@@ -720,6 +809,13 @@ async function installWallet(
             transactions.set(hash, request);
             return hash;
           }
+          if (method === 'eth_call') {
+            const call = (params?.[0] ?? {}) as { data?: string };
+            if (call.data?.startsWith('0xdd62ed3e'))
+              return `0x${'0'.repeat(64)}`;
+            return '0x';
+          }
+          if (method === 'eth_getBalance') return '0xde0b6b3a7640000';
           if (method === 'eth_getTransactionByHash') {
             const hash = params?.[0] as string;
             const transaction = transactions.get(hash);
@@ -757,7 +853,11 @@ async function installWallet(
               cumulativeGasUsed: '0x5208',
               gasUsed: '0x5208',
               contractAddress: null,
-              logs: [],
+              logs:
+                String(transaction.to).toLowerCase().endsWith('01') &&
+                String(transaction.data).startsWith(paySelector)
+                  ? [paidUsageLog]
+                  : [],
               logsBloom: `0x${'00'.repeat(256)}`,
               status: '0x1',
               effectiveGasPrice: '0x1',
@@ -799,7 +899,12 @@ async function installWallet(
       window.addEventListener('eip6963:requestProvider', announce);
       queueMicrotask(announce);
     },
-    { approvedAccount: owner, signatures: signedMessages },
+    {
+      approvedAccount: owner,
+      signatures: signedMessages,
+      paidUsageLog: usagePaid(),
+      paySelector: paymentInterface.getFunction('payForUsage')!.selector,
+    },
   );
 }
 

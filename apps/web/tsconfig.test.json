@@ -29,6 +29,10 @@
     "src/operator.ts",
     "src/operator.test.ts",
     "src/device-session.ts",
-    "src/device-session.test.ts"
+    "src/device-session.test.ts",
+    "src/diagnostics.ts",
+    "src/diagnostics.test.ts",
+    "src/telemetry.ts",
+    "src/telemetry.test.ts"
   ]
 }

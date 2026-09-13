@@ -12,7 +12,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBalance, useReadContract } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
 import { erc20Abi, formatUnits, type Address } from 'viem';
@@ -24,6 +24,7 @@ export function WalletDialog() {
   const runtime = useRuntime();
   const offer = useMachineOffer();
   const [copied, setCopied] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
   const address = runtime.account as Address | undefined;
   const tokenAddress = offer.data?.tokenAddress as Address | undefined;
   const ethBalance = useBalance({
@@ -56,14 +57,32 @@ export function WalletDialog() {
   useEffect(() => {
     if (!runtime.walletOpen) return;
     const previousOverflow = document.body.style.overflow;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') runtime.closeWallet();
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [
+        ...dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', closeOnEscape);
+      previouslyFocused?.focus();
     };
   }, [runtime.walletOpen, runtime.closeWallet]);
 
@@ -83,6 +102,7 @@ export function WalletDialog() {
       onMouseDown={runtime.closeWallet}
     >
       <section
+        ref={dialogRef}
         className="wallet-dialog"
         role="dialog"
         aria-modal="true"
