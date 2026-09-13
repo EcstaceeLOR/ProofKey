@@ -33,5 +33,11 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Install browser fixture
+        run: npx playwright install --with-deps chromium
+
+      - name: Test wallet connection
+        run: npm run test:e2e --workspace @proofkey/web
+
       - name: Build
         run: npm run build

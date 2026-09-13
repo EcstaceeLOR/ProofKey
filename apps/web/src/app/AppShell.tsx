@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigation } from 'react-router';
 import { compactHash } from '../product.js';
+import { WalletDialog } from '../components/WalletDialog.js';
 import { useRuntime } from './AppProviders.js';
 
 const navigation = [
@@ -28,8 +29,10 @@ export function AppShell() {
   const {
     account,
     connecting,
-    connectWallet,
+    openWallet,
     correctNetwork,
+    chainId,
+    switchToSepolia,
     walletError,
     configurationError,
     clearWalletError,
@@ -60,17 +63,26 @@ export function AppShell() {
         </nav>
 
         <div className="topbar-actions">
-          <div className={correctNetwork ? 'chain-pill online' : 'chain-pill'}>
+          <button
+            className={correctNetwork ? 'chain-pill online' : 'chain-pill'}
+            type="button"
+            onClick={() =>
+              account && !correctNetwork ? void switchToSepolia() : openWallet()
+            }
+          >
             <RadioTower size={14} />
             <span>
-              {correctNetwork ? 'Sepolia connected' : 'Sepolia → Creditcoin'}
+              {correctNetwork
+                ? 'Sepolia connected'
+                : account
+                  ? `Switch chain ${chainId ?? ''}`
+                  : 'Sepolia → Creditcoin'}
             </span>
-          </div>
+          </button>
           <button
             className={account ? 'wallet-control connected' : 'wallet-control'}
             type="button"
-            onClick={() => void connectWallet()}
-            disabled={connecting}
+            onClick={openWallet}
           >
             {account ? <UserRound size={16} /> : <Wallet size={16} />}
             <span>
@@ -115,6 +127,8 @@ export function AppShell() {
       <main className="app-main">
         <Outlet />
       </main>
+
+      <WalletDialog />
 
       <footer className="site-footer">
         <div>

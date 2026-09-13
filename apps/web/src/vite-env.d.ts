@@ -21,6 +21,7 @@ interface ImportMetaEnv {
   readonly VITE_ETHEREUM_SEPOLIA_RPC_URL?: string;
   readonly VITE_CREDITCOIN_RPC_URL?: string;
   readonly VITE_USAGE_PAYMENT_REGISTRY_ADDRESS?: string;
+  readonly VITE_WALLETCONNECT_PROJECT_ID?: string;
   readonly VITE_MACHINE_REGISTRY_ADDRESS?: string;
   readonly VITE_DEMO_MACHINE_ID?: string;
   readonly VITE_PROOF_WORKER_URL?: string;
