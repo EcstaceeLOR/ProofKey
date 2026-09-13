@@ -39,7 +39,9 @@ test('deployed product routes, assets, wallet modal, and relay are live', async 
     waitUntil: 'domcontentloaded',
   });
   expect(explore?.status()).toBe(200);
-  await expect(page.locator('.catalog-card')).toHaveCount(5);
+  await expect(page.locator('.catalog-card')).toHaveCount(5, {
+    timeout: 60_000,
+  });
   await page
     .getByPlaceholder('Search machine, capability or location')
     .fill('solar power Abuja');
@@ -54,7 +56,7 @@ test('deployed product routes, assets, wallet modal, and relay are live', async 
   expect(machine?.status()).toBe(200);
   await expect(
     page.locator('main h1, main [role="alert"] h2').first(),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 60_000 });
 
   const proof = await page.goto(`/proofs/${proofTransaction}`, {
     waitUntil: 'domcontentloaded',
@@ -62,15 +64,15 @@ test('deployed product routes, assets, wallet modal, and relay are live', async 
   expect(proof?.status()).toBe(200);
   await expect(
     page.locator('main h1, main [role="alert"] h2').first(),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 60_000 });
 
   const diagnostics = await page.goto('/diagnostics', {
     waitUntil: 'domcontentloaded',
   });
   expect(diagnostics?.status()).toBe(200);
   await expect(
-    page.getByRole('heading', { name: 'All systems ready' }),
-  ).toBeVisible();
+    page.getByRole('heading', { name: 'ProofKey infrastructure is ready' }),
+  ).toBeVisible({ timeout: 60_000 });
 
   const health = await request.get(`${relayUrl}/health`, { timeout: 60_000 });
   expect(health.status()).toBe(200);

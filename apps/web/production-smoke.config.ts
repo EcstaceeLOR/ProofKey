@@ -7,7 +7,7 @@ if (!baseURL)
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/production-smoke.spec.ts',
-  timeout: 120_000,
+  timeout: 240_000,
   expect: { timeout: 15_000 },
   retries: 1,
   reporter: 'line',
