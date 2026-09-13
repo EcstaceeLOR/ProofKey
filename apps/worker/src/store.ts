@@ -1,5 +1,9 @@
 import { Pool, type PoolConfig } from 'pg';
-import type { DurableJobStore, RelayJob } from './types.js';
+import type {
+  DurableJobStore,
+  RelayJob,
+  StoredMachineMetadata,
+} from './types.js';
 
 export interface PostgresJobStoreOptions {
   ssl?: boolean;
@@ -12,6 +16,7 @@ export class PostgresJobStore implements DurableJobStore {
   private readonly schema: string;
   private readonly table: string;
   private readonly claimableIndex: string;
+  private readonly metadataTable: string;
   private initialized?: Promise<void>;
 
   constructor(databaseUrl: string, options: PostgresJobStoreOptions = {}) {
@@ -25,6 +30,7 @@ export class PostgresJobStore implements DurableJobStore {
     this.schema = `"${schemaName}"`;
     this.table = `${this.schema}."${tableName}"`;
     this.claimableIndex = `"${tableName}_claimable_idx"`;
+    this.metadataTable = `${this.schema}."machine_metadata"`;
     const config: PoolConfig = {
       connectionString: databaseUrl,
       max: 5,
@@ -80,6 +86,58 @@ export class PostgresJobStore implements DurableJobStore {
       [normalized],
     );
     return result.rows[0]?.job;
+  }
+
+  async putMetadata(metadata: StoredMachineMetadata): Promise<void> {
+    await this.initialize();
+    await this.pool.query(
+      `INSERT INTO ${this.metadataTable}
+        (content_digest, commitment, uri, document, created_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5)
+       ON CONFLICT (content_digest) DO NOTHING`,
+      [
+        metadata.contentDigest.toLowerCase(),
+        metadata.commitment.toLowerCase(),
+        metadata.uri,
+        JSON.stringify(metadata.document),
+        metadata.createdAt,
+      ],
+    );
+  }
+
+  async getMetadataByDigest(
+    contentDigest: string,
+  ): Promise<StoredMachineMetadata | undefined> {
+    await this.initialize();
+    const result = await this.pool.query<StoredMachineMetadata>(
+      `SELECT content_digest AS "contentDigest",
+              commitment,
+              uri,
+              document,
+              created_at AS "createdAt"
+       FROM ${this.metadataTable}
+       WHERE content_digest = $1`,
+      [contentDigest.toLowerCase()],
+    );
+    return result.rows[0];
+  }
+
+  async getMetadataByCommitment(
+    commitment: string,
+  ): Promise<StoredMachineMetadata | undefined> {
+    await this.initialize();
+    const result = await this.pool.query<StoredMachineMetadata>(
+      `SELECT content_digest AS "contentDigest",
+              commitment,
+              uri,
+              document,
+              created_at AS "createdAt"
+       FROM ${this.metadataTable}
+       WHERE commitment = $1
+       LIMIT 1`,
+      [commitment.toLowerCase()],
+    );
+    return result.rows[0];
   }
 
   async save(job: RelayJob): Promise<void> {
@@ -184,6 +242,17 @@ export class PostgresJobStore implements DurableJobStore {
       `CREATE INDEX IF NOT EXISTS ${this.claimableIndex}
        ON ${this.table} (available_at, created_at)
        WHERE phase NOT IN ('completed', 'duplicate', 'failed')`,
+    );
+    await this.pool.query(
+      `CREATE TABLE IF NOT EXISTS ${this.metadataTable} (
+        content_digest VARCHAR(66) PRIMARY KEY,
+        commitment VARCHAR(66) NOT NULL UNIQUE,
+        uri TEXT NOT NULL UNIQUE,
+        document JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT content_digest_format CHECK (content_digest ~ '^0x[0-9a-f]{64}$'),
+        CONSTRAINT metadata_commitment_format CHECK (commitment ~ '^0x[0-9a-f]{64}$')
+      )`,
     );
   }
 }

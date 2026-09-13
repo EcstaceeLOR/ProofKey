@@ -4,13 +4,16 @@ The relay exposes a small HTTPS ingestion/status API and runs proof execution in
 
 ## API
 
-| Route                        | Purpose                                                                     |
-| ---------------------------- | --------------------------------------------------------------------------- |
-| `GET /health`                | Process liveness only; never includes configuration or secrets.             |
-| `GET /ready`                 | Separate database, Sepolia RPC, Creditcoin RPC, and relayer-balance checks. |
-| `POST /jobs`                 | Idempotently enqueue `{ "transactionHash": "0x…" }`.                        |
-| `GET /jobs/:transactionHash` | Read the public proof phase, result, or structured failure.                 |
-| `GET /proofs/:identifier`    | Search by source transaction, order, query, or CC3 transaction.             |
+| Route                             | Purpose                                                                     |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `GET /health`                     | Process liveness only; never includes configuration or secrets.             |
+| `GET /ready`                      | Separate database, Sepolia RPC, Creditcoin RPC, and relayer-balance checks. |
+| `POST /jobs`                      | Idempotently enqueue `{ "transactionHash": "0x…" }`.                        |
+| `GET /jobs/:transactionHash`      | Read the public proof phase, result, or structured failure.                 |
+| `GET /proofs/:identifier`         | Search by source transaction, order, query, or CC3 transaction.             |
+| `POST /metadata`                  | Persist a canonical machine metadata document by content digest.            |
+| `GET /metadata/:digest`           | Read immutable content-addressed machine metadata.                          |
+| `GET /metadata/commitments/:hash` | Resolve metadata from its Creditcoin URI commitment.                        |
 
 Proof responses contain only public receipt, Attestcoin, relay-phase, and
 Creditcoin execution fields. Every response passes a recursive secret-field

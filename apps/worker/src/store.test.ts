@@ -42,6 +42,24 @@ test(
 
     await delay(35);
     const restartedProcess = new PostgresJobStore(databaseUrl, { schemaName });
+    const metadata = {
+      contentDigest: `0x${'12'.repeat(32)}`,
+      commitment: `0x${'34'.repeat(32)}`,
+      uri: `https://relay.example/metadata/0x${'12'.repeat(32)}`,
+      document: { name: 'Persistent Loader' },
+      createdAt: '2026-09-13T12:00:00.000Z',
+    };
+    await restartedProcess.putMetadata(metadata);
+    assert.equal(
+      (await restartedProcess.getMetadataByDigest(metadata.contentDigest))
+        ?.document.name,
+      'Persistent Loader',
+    );
+    assert.equal(
+      (await restartedProcess.getMetadataByCommitment(metadata.commitment))
+        ?.uri,
+      metadata.uri,
+    );
     const recovered = await restartedProcess.claimNext(
       'worker-after-restart',
       1_000,

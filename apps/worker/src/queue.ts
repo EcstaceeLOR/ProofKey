@@ -1,10 +1,21 @@
 import { PermanentRelayError } from './retry.js';
-import type { DurableJobStore, RelayJob } from './types.js';
+import type {
+  DurableJobStore,
+  RelayJob,
+  StoredMachineMetadata,
+} from './types.js';
 
 export interface JobQueue {
   enqueue(transactionHash: string): Promise<RelayJob>;
   get(transactionHash: string): Promise<RelayJob | undefined>;
   find(identifier: string): Promise<RelayJob | undefined>;
+  putMetadata(metadata: StoredMachineMetadata): Promise<void>;
+  getMetadataByDigest(
+    contentDigest: string,
+  ): Promise<StoredMachineMetadata | undefined>;
+  getMetadataByCommitment(
+    commitment: string,
+  ): Promise<StoredMachineMetadata | undefined>;
 }
 
 const transactionHashPattern = /^0x[0-9a-fA-F]{64}$/;
@@ -40,5 +51,17 @@ export class RelayQueue implements JobQueue {
 
   find(identifier: string): Promise<RelayJob | undefined> {
     return this.store.find(identifier.toLowerCase());
+  }
+
+  putMetadata(metadata: StoredMachineMetadata): Promise<void> {
+    return this.store.putMetadata(metadata);
+  }
+
+  getMetadataByDigest(contentDigest: string) {
+    return this.store.getMetadataByDigest(contentDigest);
+  }
+
+  getMetadataByCommitment(commitment: string) {
+    return this.store.getMetadataByCommitment(commitment);
   }
 }

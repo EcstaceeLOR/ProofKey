@@ -8,6 +8,7 @@ import {
 } from 'ethers';
 import {
   allMachineMetadata,
+  isMachineMetadata,
   type MachineMetadata,
 } from './machine-metadata.js';
 
@@ -18,6 +19,7 @@ interface MarketplaceConfig {
   registryAddress: string;
   creditcoinRegistryDeploymentBlock: number;
   sepoliaRegistryDeploymentBlock: number;
+  workerUrl: string;
 }
 
 export const machineRegistryEvents = new Interface([
@@ -171,10 +173,11 @@ export function reconcileMarketplace(
   registryMachines: ReadonlyMap<string, RegistryMachine>,
   offers: ReadonlyMap<string, RegistryOffer>,
   token: { address: string; decimals: number; symbol: string },
+  metadataCatalog: readonly MachineMetadata[] = allMachineMetadata(),
 ) {
   return [...registryMachines.values()]
     .map<MarketplaceMachine>((machine) => {
-      const metadata = allMachineMetadata().find((item) =>
+      const metadata = metadataCatalog.find((item) =>
         metadataMatches(item, machine.metadataHash),
       );
       const offer = offers.get(machine.machineId);
@@ -182,7 +185,8 @@ export function reconcileMarketplace(
       const synchronized = Boolean(
         offer &&
         offer.beneficiary.toLowerCase() === machine.owner.toLowerCase() &&
-        offer.pricePerSecond === machine.tariff,
+        offer.pricePerSecond === machine.tariff &&
+        offer.active === machine.active,
       );
       const status: MarketplaceStatus = !metadataValid
         ? 'metadata-invalid'
@@ -356,14 +360,52 @@ export class MarketplaceClient {
       tokenContract.getFunction('decimals')(),
       tokenContract.getFunction('symbol')(),
     ]);
+    const metadataCatalog = [...allMachineMetadata()];
+    const localCommitments = new Set(
+      metadataCatalog.map((item) =>
+        keccak256(toUtf8Bytes(item.uri)).toLowerCase(),
+      ),
+    );
+    const remote = await Promise.all(
+      [...machines.values()]
+        .filter(
+          (machine) =>
+            !localCommitments.has(machine.metadataHash.toLowerCase()),
+        )
+        .map((machine) => this.loadRemoteMetadata(machine.metadataHash)),
+    );
+    metadataCatalog.push(
+      ...remote.filter((item): item is MachineMetadata => Boolean(item)),
+    );
     return {
-      machines: reconcileMarketplace(machines, offers, {
-        address: tokenAddress,
-        decimals: Number(decimals),
-        symbol: symbol as string,
-      }),
+      machines: reconcileMarketplace(
+        machines,
+        offers,
+        {
+          address: tokenAddress,
+          decimals: Number(decimals),
+          symbol: symbol as string,
+        },
+        metadataCatalog,
+      ),
       creditcoinBlock,
       sepoliaBlock,
     };
+  }
+
+  private async loadRemoteMetadata(commitment: string) {
+    try {
+      const response = await fetch(
+        `${this.config.workerUrl}/metadata/commitments/${commitment}`,
+      );
+      if (!response.ok) return undefined;
+      const metadata = (await response.json()) as unknown;
+      return isMachineMetadata(metadata) &&
+        metadataMatches(metadata, commitment)
+        ? metadata
+        : undefined;
+    } catch {
+      return undefined;
+    }
   }
 }

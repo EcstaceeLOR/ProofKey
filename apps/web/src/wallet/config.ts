@@ -3,6 +3,28 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { createConfig, http } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
 import { coinbaseWallet, injected } from 'wagmi/connectors';
+import { defineChain } from 'viem';
+
+export const creditcoinTestnet = defineChain({
+  id: 102031,
+  name: 'Creditcoin CC3 Testnet',
+  nativeCurrency: { name: 'Creditcoin', symbol: 'CTC', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        import.meta.env.VITE_CREDITCOIN_RPC_URL?.trim() ||
+          'https://rpc.cc3-testnet.creditcoin.network',
+      ],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Creditcoin Explorer',
+      url: 'https://creditcoin-testnet.blockscout.com',
+    },
+  },
+  testnet: true,
+});
 
 const walletConnectProjectId =
   import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim();
@@ -20,11 +42,14 @@ const transports = {
   [sepolia.id]: http(
     import.meta.env.VITE_ETHEREUM_SEPOLIA_RPC_URL?.trim() || undefined,
   ),
+  [creditcoinTestnet.id]: http(
+    import.meta.env.VITE_CREDITCOIN_RPC_URL?.trim() || undefined,
+  ),
 };
 
 const adapter = walletConnectProjectId
   ? new WagmiAdapter({
-      networks: [sepolia],
+      networks: [sepolia, creditcoinTestnet],
       projectId: walletConnectProjectId,
       connectors,
       multiInjectedProviderDiscovery: true,
@@ -35,7 +60,7 @@ const adapter = walletConnectProjectId
 export const wagmiConfig =
   adapter?.wagmiConfig ??
   createConfig({
-    chains: [sepolia],
+    chains: [sepolia, creditcoinTestnet],
     connectors,
     multiInjectedProviderDiscovery: true,
     transports,
@@ -45,7 +70,7 @@ export const appKit =
   adapter && walletConnectProjectId
     ? createAppKit({
         adapters: [adapter],
-        networks: [sepolia],
+        networks: [sepolia, creditcoinTestnet],
         projectId: walletConnectProjectId,
         metadata,
         themeMode: 'light',
