@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 test('homepage and wallet modal have no serious accessibility violations', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.route('https://**.rpc.proofkey.invalid/**', (route) =>
     route.abort(),
   );
@@ -34,6 +35,7 @@ test('homepage and wallet modal have no serious accessibility violations', async
 test('primary navigation is keyboard-operable and mobile layout does not overflow', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route('https://**.rpc.proofkey.invalid/**', (route) =>
     route.abort(),
