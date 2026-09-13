@@ -78,11 +78,14 @@ class FakeAdapter implements RelayAdapter {
   async isOrderProcessed(): Promise<boolean> {
     return this.processed;
   }
-  async submitProof(): Promise<string> {
+  async submitProof() {
     this.submissions += 1;
     if (this.submissions <= this.submitFailures)
       throw new Error('temporary Creditcoin RPC failure');
-    return `0x${'cd'.repeat(32)}`;
+    return {
+      transactionHash: `0x${'cd'.repeat(32)}`,
+      queryId: `0x${'ef'.repeat(32)}`,
+    };
   }
 }
 
@@ -107,6 +110,9 @@ test('processes a UsagePaid transaction through every observable phase', async (
   assert.equal(result.sourceBlockNumber, sourceReceipt.blockNumber);
   assert.equal(result.accessExpiresAt, '1720003600');
   assert.equal(result.creditcoinTransactionHash, `0x${'cd'.repeat(32)}`);
+  assert.equal(result.queryId, `0x${'ef'.repeat(32)}`);
+  assert.deepEqual(result.sourcePayment, sourceReceipt.payment);
+  assert.deepEqual(result.proof, proof);
   const transitions = reporter.statuses
     .filter((status) => status.attempt === undefined)
     .map((status) => status.phase);

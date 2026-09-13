@@ -16,6 +16,22 @@ export class MemoryDurableStore implements DurableJobStore {
     return { job: structuredClone(job), created: true };
   }
 
+  async find(identifier: string): Promise<RelayJob | undefined> {
+    const normalized = identifier.toLowerCase();
+    for (const job of this.jobs.values()) {
+      if (
+        [
+          job.sourceTransactionHash,
+          job.orderId,
+          job.queryId,
+          job.creditcoinTransactionHash,
+        ].some((value) => value?.toLowerCase() === normalized)
+      )
+        return structuredClone(job);
+    }
+    return undefined;
+  }
+
   async save(job: RelayJob): Promise<void> {
     this.jobs.set(
       job.sourceTransactionHash.toLowerCase(),

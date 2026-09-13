@@ -4,6 +4,7 @@ import type { DurableJobStore, RelayJob } from './types.js';
 export interface JobQueue {
   enqueue(transactionHash: string): Promise<RelayJob>;
   get(transactionHash: string): Promise<RelayJob | undefined>;
+  find(identifier: string): Promise<RelayJob | undefined>;
 }
 
 const transactionHashPattern = /^0x[0-9a-fA-F]{64}$/;
@@ -35,5 +36,9 @@ export class RelayQueue implements JobQueue {
 
   get(transactionHash: string): Promise<RelayJob | undefined> {
     return this.store.get(transactionHash.toLowerCase());
+  }
+
+  find(identifier: string): Promise<RelayJob | undefined> {
+    return this.store.find(identifier.toLowerCase());
   }
 }

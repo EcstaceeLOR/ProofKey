@@ -1,4 +1,14 @@
 import type { RelayJob } from './flow.js';
+import type { PublicProofEvidence } from './proof.js';
+
+export class ProofLookupError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
 export function normalizeProofWorkerUrl(
   value: string | undefined,
@@ -41,6 +51,24 @@ export class ProofWorkerClient {
       body: JSON.stringify({ transactionHash }),
     });
     return this.parse(response);
+  }
+
+  async getProof(identifier: string): Promise<PublicProofEvidence> {
+    const response = await fetch(`${this.baseUrl}/proofs/${identifier}`);
+    if (response.status === 404)
+      throw new ProofLookupError(
+        'No proof matches that source transaction, order, query, or Creditcoin transaction.',
+        404,
+      );
+    if (!response.ok) {
+      const body = (await response.json().catch(() => undefined)) as
+        { error?: { message?: string } } | undefined;
+      throw new ProofLookupError(
+        body?.error?.message ?? `Proof relay returned HTTP ${response.status}.`,
+        response.status,
+      );
+    }
+    return (await response.json()) as PublicProofEvidence;
   }
 
   async waitForCompletion(

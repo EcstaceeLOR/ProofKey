@@ -23,6 +23,8 @@
     "src/contracts.ts",
     "src/vite-env.d.ts",
     "src/activity.ts",
-    "src/activity.test.ts"
+    "src/activity.test.ts",
+    "src/proof.ts",
+    "src/proof.test.ts"
   ]
 }

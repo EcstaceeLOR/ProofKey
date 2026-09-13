@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { assertPublicEvidence, writePublicEvidence } from './evidence.js';
+import {
+  assertPublicEvidence,
+  publicEvidenceFromJob,
+  writePublicEvidence,
+} from './evidence.js';
 
 test('accepts public chain evidence and payment-token fields', () => {
   assert.doesNotThrow(() =>
@@ -25,6 +29,10 @@ test('rejects nested secret and RPC fields', () => {
     () => assertPublicEvidence({ workerPrivateKey: `0x${'ab'.repeat(32)}` }),
     /Refusing to persist secret-bearing field/,
   );
+  assert.throws(
+    () => assertPublicEvidence({ relay: { internalPath: '/srv/proof.json' } }),
+    /Refusing to persist secret-bearing field/,
+  );
 });
 
 test('writes labeled public evidence without secret material', async (context) => {
@@ -39,4 +47,37 @@ test('writes labeled public evidence without secret material', async (context) =
   await writePublicEvidence(outputPath, evidence);
 
   assert.deepEqual(JSON.parse(await readFile(outputPath, 'utf8')), evidence);
+});
+
+test('builds a recursively safe public proof record from a relay job', () => {
+  const evidence = publicEvidenceFromJob({
+    sourceTransactionHash: `0x${'ab'.repeat(32)}`,
+    phase: 'completed',
+    createdAt: '2026-09-13T10:00:00.000Z',
+    updatedAt: '2026-09-13T10:05:00.000Z',
+    attempts: { proof_generation: 1 },
+    sourceBlockNumber: 123,
+    sourcePayment: {
+      orderId: `0x${'01'.repeat(32)}`,
+      machineId: `0x${'02'.repeat(32)}`,
+      payer: '0x1111111111111111111111111111111111111111',
+      beneficiary: '0x2222222222222222222222222222222222222222',
+      startTime: '1000',
+      duration: '60',
+      amount: '600',
+    },
+    proof: {
+      chainKey: 1,
+      blockHeight: 123,
+      encodedTransaction: '0x01',
+      merkleRoot: `0x${'03'.repeat(32)}`,
+      siblings: [],
+      lowerEndpointDigest: `0x${'04'.repeat(32)}`,
+      continuityRoots: [],
+    },
+  });
+  assert.equal(evidence.schema, 'proofkey.public-proof.v1');
+  assert.equal(evidence.source.payment?.amount, '600');
+  assert.doesNotThrow(() => assertPublicEvidence(evidence));
+  assert.equal(JSON.stringify(evidence).includes('rpcUrl'), false);
 });

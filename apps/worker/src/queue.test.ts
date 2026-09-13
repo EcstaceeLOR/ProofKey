@@ -27,3 +27,16 @@ test('rejects malformed public job input before persistence', async () => {
   );
   assert.equal(store.jobs.size, 0);
 });
+
+test('finds proof jobs by cross-chain identifiers', async () => {
+  const store = new MemoryDurableStore();
+  const queue = new RelayQueue(store);
+  const first = await queue.enqueue(hash);
+  const orderId = `0x${'12'.repeat(32)}`;
+  const queryId = `0x${'34'.repeat(32)}`;
+  const creditcoinTransactionHash = `0x${'56'.repeat(32)}`;
+  await store.save({ ...first, orderId, queryId, creditcoinTransactionHash });
+
+  for (const identifier of [hash, orderId, queryId, creditcoinTransactionHash])
+    assert.equal((await queue.find(identifier))?.sourceTransactionHash, hash);
+});

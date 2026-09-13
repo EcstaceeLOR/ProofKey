@@ -41,6 +41,10 @@ const queue: JobQueue = {
     transactionHash.toLowerCase() === hash
       ? { ...job, phase: 'proof_generation' }
       : undefined,
+  find: async (identifier) =>
+    identifier.toLowerCase() === hash
+      ? { ...job, phase: 'proof_generation' }
+      : undefined,
 };
 
 async function start(
@@ -79,6 +83,20 @@ test('accepts an allowed browser job and exposes status and readiness', async (c
   const readiness = await fetch(`${url}/ready`);
   assert.equal(readiness.status, 200);
   assert.deepEqual(await readiness.json(), ready);
+
+  const proof = await fetch(`${url}/proofs/${hash}`);
+  assert.equal(proof.status, 200);
+  assert.deepEqual(await proof.json(), {
+    schema: 'proofkey.public-proof.v1',
+    source: { transactionHash: hash },
+    relay: {
+      phase: 'proof_generation',
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      attempts: {},
+    },
+    creditcoin: {},
+  });
 });
 
 test('rejects an untrusted browser origin without a CORS grant', async (context) => {

@@ -66,6 +66,22 @@ export class PostgresJobStore implements DurableJobStore {
     return { job: existing, created: false };
   }
 
+  async find(identifier: string): Promise<RelayJob | undefined> {
+    await this.initialize();
+    const normalized = identifier.toLowerCase();
+    const result = await this.pool.query<{ job: RelayJob }>(
+      `SELECT job FROM ${this.table}
+       WHERE source_transaction_hash = $1
+          OR LOWER(job->>'orderId') = $1
+          OR LOWER(job->>'queryId') = $1
+          OR LOWER(job->>'creditcoinTransactionHash') = $1
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [normalized],
+    );
+    return result.rows[0]?.job;
+  }
+
   async save(job: RelayJob): Promise<void> {
     await this.initialize();
     await this.pool.query(
