@@ -33,7 +33,7 @@ const metadata = {
   name: 'ProofKey',
   description: 'Proof-backed access for real-world machines',
   url: window.location.origin,
-  icons: [`${window.location.origin}/favicon.svg`],
+  icons: [`${window.location.origin}/proofkey-logo.svg?v=2`],
 };
 const connectors = [
   injected({ shimDisconnect: true }),
