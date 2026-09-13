@@ -262,14 +262,25 @@ export class MarketplaceClient {
   private readonly creditcoin: JsonRpcProvider;
   private readonly sepolia: JsonRpcProvider;
   constructor(private readonly config: MarketplaceConfig) {
-    this.creditcoin = new JsonRpcProvider(config.creditcoinRpcUrl);
-    this.sepolia = new JsonRpcProvider(config.sepoliaRpcUrl);
+    this.creditcoin = new JsonRpcProvider(config.creditcoinRpcUrl, 102031, {
+      staticNetwork: true,
+    });
+    this.sepolia = new JsonRpcProvider(config.sepoliaRpcUrl, 11155111, {
+      staticNetwork: true,
+    });
   }
   async load(): Promise<MarketplaceSnapshot> {
-    const [creditcoinBlock, sepoliaBlock] = await Promise.all([
-      this.creditcoin.getBlockNumber(),
-      this.sepolia.getBlockNumber(),
-    ]);
+    const [creditcoinChainId, sepoliaChainId, creditcoinBlock, sepoliaBlock] =
+      await Promise.all([
+        this.creditcoin.send('eth_chainId', []),
+        this.sepolia.send('eth_chainId', []),
+        this.creditcoin.getBlockNumber(),
+        this.sepolia.getBlockNumber(),
+      ]);
+    if (BigInt(creditcoinChainId as string) !== 102031n)
+      throw new Error('Machine registry RPC is not CC3 testnet 102031.');
+    if (BigInt(sepoliaChainId as string) !== 11155111n)
+      throw new Error('Payment registry RPC is not Ethereum Sepolia 11155111.');
     const machineTopics = [
       'MachineRegistered',
       'MachineControllerUpdated',

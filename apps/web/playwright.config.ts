@@ -24,13 +24,14 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       ...process.env,
-      VITE_ETHEREUM_SEPOLIA_RPC_URL: 'http://127.0.0.1:1',
-      VITE_CREDITCOIN_RPC_URL: 'http://127.0.0.1:1',
+      VITE_ETHEREUM_SEPOLIA_RPC_URL: 'https://sepolia.rpc.proofkey.invalid',
+      VITE_CREDITCOIN_RPC_URL: 'https://creditcoin.rpc.proofkey.invalid',
       VITE_USAGE_PAYMENT_REGISTRY_ADDRESS:
         '0x0000000000000000000000000000000000000001',
       VITE_MACHINE_REGISTRY_ADDRESS:
         '0x0000000000000000000000000000000000000002',
-      VITE_DEMO_MACHINE_ID: `0x${'01'.repeat(32)}`,
+      VITE_DEMO_MACHINE_ID:
+        '0xc04beae61beb9471c4f24c8788a4624988d2948a5c3d3dd0b6ba1b7602875bcc',
       VITE_PROOF_WORKER_URL: 'https://relay.invalid',
       VITE_DEVICE_SIMULATOR_URL: 'http://127.0.0.1:1',
       VITE_WALLETCONNECT_PROJECT_ID: '',

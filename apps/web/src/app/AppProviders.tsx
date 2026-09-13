@@ -27,6 +27,7 @@ import {
   loadAppConfig,
   type AppConfig,
   type MachineOffer,
+  type UsageActivity,
 } from '../contracts.js';
 import { describeError } from '../product.js';
 import { MarketplaceClient, type MarketplaceSnapshot } from '../marketplace.js';
@@ -210,17 +211,29 @@ export function useRuntime(): RuntimeContextValue {
   return value;
 }
 
-export function useMachineOffer() {
+export function useMachineOffer(machineId?: string) {
   const { config, paymentClient } = useRuntime();
+  const resolvedMachineId = machineId ?? config?.machineId;
   return useQuery<MachineOffer>({
-    queryKey: ['offer', config?.machineId],
+    queryKey: ['offer', resolvedMachineId],
     queryFn: async () => {
       if (!paymentClient)
         throw new Error('ProofKey runtime is not configured.');
-      return paymentClient.loadOffer();
+      if (!resolvedMachineId) throw new Error('A machine ID is required.');
+      return paymentClient.loadOffer(resolvedMachineId);
     },
-    enabled: Boolean(paymentClient),
+    enabled: Boolean(paymentClient && resolvedMachineId),
     staleTime: 15_000,
+  });
+}
+
+export function useMachineActivity(machineId?: string) {
+  const { paymentClient } = useRuntime();
+  return useQuery<UsageActivity[]>({
+    queryKey: ['machine-activity', machineId],
+    queryFn: () => paymentClient!.loadRecentUsage(machineId!),
+    enabled: Boolean(paymentClient && machineId),
+    staleTime: 20_000,
   });
 }
 
