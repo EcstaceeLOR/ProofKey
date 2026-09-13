@@ -97,7 +97,7 @@ export function Component() {
     setBusy(true);
     try {
       if (!runtime.account) {
-        await runtime.connectWallet();
+        runtime.openWallet();
         return;
       }
       if (!runtime.correctNetwork) {
@@ -105,6 +105,10 @@ export function Component() {
         return;
       }
       if (!offer || !worker) return;
+      if (!runtime.walletProvider)
+        throw new Error(
+          'The connected wallet transport is still loading. Try again in a moment.',
+        );
       if (sourceTransactionHash)
         return await followRelay(sourceTransactionHash);
       const payment = await runtime.paymentClient!.payForUsage(
@@ -117,6 +121,8 @@ export function Component() {
             localStorage.setItem(storageKey, update.transactionHash);
           }
         },
+        runtime.walletProvider,
+        runtime.account,
       );
       setSourceTransactionHash(payment.transactionHash);
       setExpiresAt(payment.expiresAt);

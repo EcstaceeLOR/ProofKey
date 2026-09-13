@@ -3,16 +3,25 @@ import {
   QueryClientProvider,
   useQuery,
 } from '@tanstack/react-query';
-import { BrowserProvider } from 'ethers';
+import type { Eip1193Provider } from 'ethers';
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+import {
+  WagmiProvider,
+  useAccount,
+  useConnect,
+  useConnectorClient,
+  useConnectors,
+  useDisconnect,
+  useSwitchChain,
+  type Connector,
+} from 'wagmi';
 import {
   PaymentClient,
   loadAppConfig,
@@ -20,17 +29,34 @@ import {
   type MachineOffer,
 } from '../contracts.js';
 import { describeError } from '../product.js';
+import { appKit, hasWalletConnect, wagmiConfig } from '../wallet/config.js';
+import {
+  deriveWalletView,
+  describeWalletError,
+  SEPOLIA_CHAIN_ID,
+  type WalletView,
+} from '../wallet/state.js';
 
 interface RuntimeContextValue {
   config?: AppConfig;
   paymentClient?: PaymentClient;
+  walletProvider?: Eip1193Provider;
   configurationError?: string;
   account?: string;
+  chainId?: number;
+  connectorName?: string;
+  connectors: readonly Connector[];
   correctNetwork: boolean;
   connecting: boolean;
+  walletView: WalletView;
   walletError?: string;
-  connectWallet: () => Promise<void>;
-  disconnectWallet: () => void;
+  walletOpen: boolean;
+  walletConnectConfigured: boolean;
+  openWallet: () => void;
+  closeWallet: () => void;
+  connectWallet: (connector: Connector) => Promise<void>;
+  openMobileWallet: () => Promise<void>;
+  disconnectWallet: () => Promise<void>;
   switchToSepolia: () => Promise<void>;
   clearWalletError: () => void;
 }
@@ -46,9 +72,11 @@ const queryClient = new QueryClient({
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <RuntimeProvider>{children}</RuntimeProvider>
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig} reconnectOnMount>
+      <QueryClientProvider client={queryClient}>
+        <RuntimeProvider>{children}</RuntimeProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 
@@ -61,87 +89,108 @@ function RuntimeProvider({ children }: { children: ReactNode }) {
       return { configurationError: describeError(error) };
     }
   }, []);
-  const [account, setAccount] = useState<string>();
-  const [correctNetwork, setCorrectNetwork] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const accountState = useAccount();
+  const chainId = accountState.chainId;
+  const connectors = useConnectors();
+  const connect = useConnect();
+  const disconnect = useDisconnect();
+  const switchChain = useSwitchChain();
+  const connectorClient = useConnectorClient();
   const [walletError, setWalletError] = useState<string>();
+  const [walletOpen, setWalletOpen] = useState(false);
+  const openWallet = useCallback(() => setWalletOpen(true), []);
+  const closeWallet = useCallback(() => setWalletOpen(false), []);
 
-  const refreshNetwork = useCallback(async () => {
-    if (!window.ethereum) return setCorrectNetwork(false);
-    try {
-      const chainId = (await window.ethereum.request({
-        method: 'eth_chainId',
-      })) as string;
-      setCorrectNetwork(Number.parseInt(chainId, 16) === 11155111);
-    } catch {
-      setCorrectNetwork(false);
-    }
-  }, []);
+  const account = accountState.address;
+  const correctNetwork = Boolean(
+    accountState.isConnected && chainId === SEPOLIA_CHAIN_ID,
+  );
+  const connecting =
+    accountState.status === 'connecting' ||
+    accountState.status === 'reconnecting' ||
+    connect.isPending;
+  const walletView = deriveWalletView({
+    status: accountState.status,
+    address: account,
+    chainId,
+    error: connect.error,
+  });
+  const walletProvider = connectorClient.data?.transport as unknown as
+    Eip1193Provider | undefined;
 
-  useEffect(() => {
-    if (!window.ethereum) return;
-    const ethereum = window.ethereum;
-    const handleChainChanged = () => void refreshNetwork();
-    const handleAccountsChanged = (...arguments_: unknown[]) => {
-      const accounts = arguments_[0];
-      setAccount(
-        Array.isArray(accounts) && typeof accounts[0] === 'string'
-          ? accounts[0]
-          : undefined,
-      );
-    };
-    ethereum.on?.('chainChanged', handleChainChanged);
-    ethereum.on?.('accountsChanged', handleAccountsChanged);
-    void refreshNetwork();
-    return () => {
-      ethereum.removeListener?.('chainChanged', handleChainChanged);
-      ethereum.removeListener?.('accountsChanged', handleAccountsChanged);
-    };
-  }, [refreshNetwork]);
+  const connectWallet = useCallback(
+    async (connector: Connector) => {
+      setWalletError(undefined);
+      try {
+        await connect.mutateAsync({ connector });
+      } catch (error) {
+        setWalletError(describeWalletError(error));
+      }
+    },
+    [connect],
+  );
 
-  const connectWallet = useCallback(async () => {
-    setConnecting(true);
+  const disconnectWallet = useCallback(async () => {
     setWalletError(undefined);
     try {
-      if (!window.ethereum)
-        throw new Error(
-          'No browser wallet found. Install an EVM wallet to continue.',
-        );
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const provider = new BrowserProvider(window.ethereum);
-      setAccount(await (await provider.getSigner()).getAddress());
-      await refreshNetwork();
+      await disconnect.mutateAsync();
     } catch (error) {
-      setWalletError(describeError(error));
-    } finally {
-      setConnecting(false);
+      setWalletError(describeWalletError(error));
     }
-  }, [refreshNetwork]);
+  }, [disconnect]);
+
+  const openMobileWallet = useCallback(async () => {
+    setWalletError(undefined);
+    if (!appKit) {
+      setWalletError(
+        'WalletConnect requires a Reown project ID in the deployment configuration.',
+      );
+      return;
+    }
+    setWalletOpen(false);
+    try {
+      await appKit.open({ view: 'Connect' });
+    } catch (error) {
+      setWalletError(describeWalletError(error));
+      setWalletOpen(true);
+    }
+  }, []);
 
   const switchToSepolia = useCallback(async () => {
     setWalletError(undefined);
     try {
-      if (!runtime.paymentClient) throw new Error(runtime.configurationError);
-      await runtime.paymentClient.switchToSepolia();
-      await refreshNetwork();
+      await switchChain.mutateAsync({ chainId: SEPOLIA_CHAIN_ID });
     } catch (error) {
-      setWalletError(describeError(error));
-      throw error;
+      setWalletError(describeWalletError(error));
     }
-  }, [refreshNetwork, runtime]);
+  }, [switchChain]);
 
   return (
     <RuntimeContext.Provider
       value={{
         ...runtime,
         account,
+        chainId,
+        connectorName: accountState.connector?.name,
+        connectors,
+        walletProvider,
         correctNetwork,
         connecting,
+        walletView,
         walletError,
+        walletOpen,
+        walletConnectConfigured: hasWalletConnect,
+        openWallet,
+        closeWallet,
         connectWallet,
-        disconnectWallet: () => setAccount(undefined),
+        openMobileWallet,
+        disconnectWallet,
         switchToSepolia,
-        clearWalletError: () => setWalletError(undefined),
+        clearWalletError: () => {
+          connect.reset();
+          switchChain.reset();
+          setWalletError(undefined);
+        },
       }}
     >
       {children}

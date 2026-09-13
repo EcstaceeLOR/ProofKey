@@ -10,6 +10,8 @@
     "src/flow.ts",
     "src/flow.test.ts",
     "src/product.ts",
-    "src/product.test.ts"
+    "src/product.test.ts",
+    "src/wallet/state.ts",
+    "src/wallet/state.test.ts"
   ]
 }

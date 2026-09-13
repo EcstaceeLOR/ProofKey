@@ -110,13 +110,8 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
 export class PaymentClient {
   private readonly readProvider: JsonRpcProvider;
   private readonly creditcoinProvider: JsonRpcProvider;
-  private browserProvider?: BrowserProvider;
-  private account?: string;
 
-  constructor(
-    private readonly config: AppConfig,
-    private readonly injected: Eip1193Provider | undefined = window.ethereum,
-  ) {
+  constructor(private readonly config: AppConfig) {
     this.readProvider = new JsonRpcProvider(config.sepoliaRpcUrl);
     this.creditcoinProvider = new JsonRpcProvider(config.creditcoinRpcUrl);
   }
@@ -179,73 +174,28 @@ export class PaymentClient {
     };
   }
 
-  async connect(): Promise<{ account: string; correctNetwork: boolean }> {
-    if (!this.injected)
-      throw new Error('No browser wallet found. Install MetaMask to continue.');
-    await this.injected.request({ method: 'eth_requestAccounts' });
-    this.browserProvider = new BrowserProvider(this.injected);
-    const signer = await this.browserProvider.getSigner();
-    this.account = await signer.getAddress();
-    return { account: this.account, correctNetwork: await this.isSepolia() };
-  }
-
-  async switchToSepolia(): Promise<void> {
-    if (!this.injected) throw new Error('No browser wallet found.');
-    try {
-      await this.injected.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0xaa36a7' }],
-      });
-    } catch (error) {
-      if ((error as { code?: number }).code !== 4902) throw error;
-      await this.injected.request({
-        method: 'wallet_addEthereumChain',
-        params: [
-          {
-            chainId: '0xaa36a7',
-            chainName: 'Ethereum Sepolia',
-            nativeCurrency: {
-              name: 'Sepolia ETH',
-              symbol: 'ETH',
-              decimals: 18,
-            },
-            rpcUrls: [this.config.sepoliaRpcUrl],
-            blockExplorerUrls: [this.config.sepoliaExplorerUrl],
-          },
-        ],
-      });
-    }
-    this.browserProvider = new BrowserProvider(this.injected);
-  }
-
-  async isSepolia(): Promise<boolean> {
-    if (!this.injected) return false;
-    const chainId = (await this.injected.request({
-      method: 'eth_chainId',
-    })) as string;
-    return Number.parseInt(chainId, 16) === sepoliaChainId;
-  }
-
   async payForUsage(
     offer: MachineOffer,
     durationSeconds: number,
     onUpdate: (update: PaymentUpdate) => void,
+    walletProvider: Eip1193Provider,
+    connectedAccount: string,
   ): Promise<PaymentResult> {
-    if (!this.browserProvider || !this.account)
-      throw new Error('Connect your wallet before paying.');
-    if (!(await this.isSepolia()))
-      throw new Error('Switch your wallet to Ethereum Sepolia.');
-    if (!this.injected) throw new Error('No browser wallet found.');
-    this.browserProvider = new BrowserProvider(this.injected);
-    const signer = await this.browserProvider.getSigner();
-    this.account = await signer.getAddress();
+    const browserProvider = new BrowserProvider(walletProvider);
+    const network = await browserProvider.getNetwork();
+    if (network.chainId !== BigInt(sepoliaChainId))
+      throw new Error(
+        `Wallet is on chain ${network.chainId}; switch to Ethereum Sepolia 11155111.`,
+      );
+    const signer = await browserProvider.getSigner(connectedAccount);
+    const account = await signer.getAddress();
     if (!offer.active)
       throw new Error('This machine is currently unavailable.');
 
     const amount = totalForDuration(offer.pricePerSecond, durationSeconds);
     const token = new Contract(offer.tokenAddress, tokenAbi, signer);
     const allowance = (await token.getFunction('allowance')(
-      this.account,
+      account,
       this.config.registryAddress,
     )) as bigint;
     if (allowance < amount) {

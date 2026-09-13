@@ -8,6 +8,8 @@ cache/
 coverage/
 dist/
 dist-test/
+playwright-report/
+test-results/
 node_modules/
 typechain-types/
 packages/contracts/deployments/*.json
