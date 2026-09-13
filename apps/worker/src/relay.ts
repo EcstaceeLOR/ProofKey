@@ -73,6 +73,7 @@ export class ProofRelay {
       job = {
         ...job,
         sourceBlockNumber: receipt.blockNumber,
+        sourcePayment: receipt.payment,
         orderId: receipt.payment.orderId,
         machineId: receipt.payment.machineId,
         payer: receipt.payment.payer,
@@ -118,6 +119,8 @@ export class ProofRelay {
           `Proof identifies chain ${proof.chainKey}, block ${proof.blockHeight}; expected Sepolia chain key 1, block ${receipt.blockNumber}.`,
         );
       }
+      job = { ...job, proof };
+      await this.store.save(job);
 
       activePhase = 'creditcoin_execution';
       job = await this.transition(
@@ -125,9 +128,9 @@ export class ProofRelay {
         activePhase,
         'Submitting the proof to ProofKeyASC on Creditcoin.',
       );
-      let creditcoinTransactionHash: string;
+      let execution;
       try {
-        creditcoinTransactionHash = await this.runPhase(job, activePhase, () =>
+        execution = await this.runPhase(job, activePhase, () =>
           this.adapter.submitProof(proof),
         );
       } catch (error) {
@@ -141,7 +144,11 @@ export class ProofRelay {
         throw error;
       }
 
-      job = { ...job, creditcoinTransactionHash };
+      job = {
+        ...job,
+        creditcoinTransactionHash: execution.transactionHash,
+        queryId: execution.queryId,
+      };
       return this.transition(
         job,
         'completed',

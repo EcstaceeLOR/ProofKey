@@ -105,6 +105,30 @@ test('a fresh connected browser recovers active access from chain and relay stat
   ).toBeVisible();
 });
 
+test('proof explorer resolves an order ID and recomputes every cross-chain invariant', async ({
+  page,
+}) => {
+  await mockMarketplaceRpc(page);
+  await page.route('https://relay.invalid/proofs/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(publicProofEvidence()),
+    });
+  });
+  await page.goto(`/proofs/${orderId}`);
+
+  await expect(
+    page.getByRole('heading', { name: 'Access verified on Creditcoin' }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.invariant-row.pass')).toHaveCount(11);
+  await expect(page.getByText('Native query proof')).toBeVisible();
+  await expect(page.getByText('Continuity path')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Download JSON' }),
+  ).toBeVisible();
+});
+
 async function mockMarketplaceRpc(page: Page, includeUsage = false) {
   await page.route('https://**.rpc.proofkey.invalid/**', async (route) => {
     const request = route.request();
@@ -140,6 +164,10 @@ function rpcResult(
     result = isCreditcoin ? '0x18e8f' : '0xaa36a7';
   else if (rpc.method === 'eth_blockNumber')
     result = isCreditcoin ? '0x539000' : '0xb26c00';
+  else if (rpc.method === 'eth_getTransactionByHash')
+    result = sourceTransaction(rpc.params?.[0] as string);
+  else if (rpc.method === 'eth_getTransactionReceipt')
+    result = isCreditcoin ? creditcoinReceipt() : sourceReceipt();
   else if (rpc.method === 'eth_getLogs') {
     const topics = (rpc.params?.[0] as { topics?: unknown[] })?.topics ?? [];
     const isUsageQuery = topics.length > 1 && topics[1] === null;
@@ -206,6 +234,111 @@ function rpcResult(
     else result = tokenInterface.encodeFunctionResult('symbol', ['pkUSDC']);
   } else result = '0x0';
   return result;
+}
+
+function publicProofEvidence() {
+  return {
+    schema: 'proofkey.public-proof.v1',
+    source: {
+      transactionHash: `0x${'fa'.repeat(32)}`,
+      blockNumber: 11_693_054,
+      payment: {
+        orderId,
+        machineId,
+        payer: owner,
+        beneficiary: owner,
+        startTime: '1500',
+        duration: '1000',
+        amount: '2500000',
+      },
+    },
+    relay: {
+      phase: 'completed',
+      createdAt: '2026-09-13T10:00:00.000Z',
+      updatedAt: '2026-09-13T10:05:00.000Z',
+      attempts: { proof_generation: 1, creditcoin_execution: 1 },
+    },
+    attestcoin: {
+      chainKey: 1,
+      blockHeight: 11_693_054,
+      encodedTransaction: '0x01',
+      merkleRoot: `0x${'31'.repeat(32)}`,
+      siblings: [{ hash: `0x${'32'.repeat(32)}`, isLeft: true }],
+      lowerEndpointDigest: `0x${'33'.repeat(32)}`,
+      continuityRoots: [`0x${'34'.repeat(32)}`],
+    },
+    creditcoin: {
+      transactionHash: `0x${'ab'.repeat(32)}`,
+      queryId: `0x${'12'.repeat(32)}`,
+      accessExpiresAt: '2500',
+    },
+  };
+}
+
+function sourceTransaction(hash: string) {
+  return {
+    hash,
+    blockHash: `0x${'a1'.repeat(32)}`,
+    blockNumber: '0xb26bfe',
+    transactionIndex: '0x0',
+    from: owner,
+    to: '0x0000000000000000000000000000000000000001',
+    nonce: '0x1',
+    gas: '0x5208',
+    gasPrice: '0x1',
+    input: '0x',
+    value: '0x0',
+    type: '0x0',
+    chainId: '0xaa36a7',
+    v: '0x1b',
+    r: `0x${'01'.repeat(32)}`,
+    s: `0x${'02'.repeat(32)}`,
+  };
+}
+
+function sourceReceipt() {
+  return transactionReceipt(
+    `0x${'fa'.repeat(32)}`,
+    `0x${'a1'.repeat(32)}`,
+    '0xb26bfe',
+    '0x0000000000000000000000000000000000000001',
+    [usagePaid()],
+  );
+}
+
+function creditcoinReceipt() {
+  return transactionReceipt(
+    `0x${'ab'.repeat(32)}`,
+    `0x${'a2'.repeat(32)}`,
+    '0x539010',
+    '0x0000000000000000000000000000000000000005',
+    [activation()],
+  );
+}
+
+function transactionReceipt(
+  transactionHash: string,
+  blockHash: string,
+  blockNumber: string,
+  to: string,
+  logs: unknown[],
+) {
+  return {
+    transactionHash,
+    transactionIndex: '0x0',
+    blockHash,
+    blockNumber,
+    from: owner,
+    to,
+    cumulativeGasUsed: '0x5208',
+    gasUsed: '0x5208',
+    contractAddress: null,
+    logs,
+    logsBloom: `0x${'00'.repeat(256)}`,
+    status: '0x1',
+    effectiveGasPrice: '0x1',
+    type: '0x0',
+  };
 }
 
 function usagePaid() {

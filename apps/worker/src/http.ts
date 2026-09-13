@@ -5,6 +5,7 @@ import {
   type ServerResponse,
 } from 'node:http';
 import { PermanentRelayError } from './retry.js';
+import { publicEvidenceFromJob } from './evidence.js';
 import type { JobQueue } from './queue.js';
 import type { RelayReadiness } from './types.js';
 
@@ -114,6 +115,19 @@ export function createRelayHttpServer(
               404,
               'JOB_NOT_FOUND',
               'Relay job not found.',
+              false,
+            );
+      }
+      const proofMatch = /^\/proofs\/(0x[0-9a-fA-F]{64})$/.exec(url.pathname);
+      if (request.method === 'GET' && proofMatch?.[1]) {
+        const job = await queue.find(proofMatch[1]);
+        return job
+          ? send(response, 200, publicEvidenceFromJob(job))
+          : sendError(
+              response,
+              404,
+              'PROOF_NOT_FOUND',
+              'No proof matches that source transaction, order, query, or Creditcoin transaction.',
               false,
             );
       }

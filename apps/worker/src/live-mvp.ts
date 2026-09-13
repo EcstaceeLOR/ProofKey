@@ -288,7 +288,8 @@ async function main(): Promise<void> {
     'creditcoin_execution',
     'Proof generated; submitting ProofKeyASC.execute.',
   );
-  const creditcoinTransactionHash = await adapter.submitProof(proof);
+  const execution = await adapter.submitProof(proof);
+  const creditcoinTransactionHash = execution.transactionHash;
   const creditcoinReceipt = await creditcoinProvider.getTransactionReceipt(
     creditcoinTransactionHash,
   );

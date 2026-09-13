@@ -12,6 +12,7 @@ import type { WorkerConfig } from './config.js';
 import { PermanentRelayError } from './retry.js';
 import type {
   AttestcoinProof,
+  CreditcoinExecution,
   RelayAdapter,
   SourceReceipt,
   UsagePayment,
@@ -24,6 +25,9 @@ const proofKeyAbi = [
   'function execute(uint8 action,uint64 chainKey,uint64 blockHeight,bytes encodedTransaction,bytes32 merkleRoot,tuple(bytes32 hash,bool isLeft)[] siblings,bytes32 lowerEndpointDigest,bytes32[] continuityRoots) returns (bool)',
   'function processedOrders(bytes32 orderId) view returns (bool)',
 ] as const;
+const activationInterface = new Interface([
+  'event ProofKeyAccessActivated(bytes32 indexed queryId,bytes32 indexed orderId,bytes32 indexed machineId,address payer,uint64 expiresAt)',
+]);
 
 export class NetworkRelayAdapter implements RelayAdapter {
   private readonly sourceProvider: JsonRpcProvider;
@@ -193,7 +197,7 @@ export class NetworkRelayAdapter implements RelayAdapter {
     )) as boolean;
   }
 
-  async submitProof(proof: AttestcoinProof): Promise<string> {
+  async submitProof(proof: AttestcoinProof): Promise<CreditcoinExecution> {
     const transaction = await this.contract.getFunction('execute')(
       0,
       proof.chainKey,
@@ -207,7 +211,19 @@ export class NetworkRelayAdapter implements RelayAdapter {
     const receipt = await transaction.wait();
     if (!receipt || receipt.status !== 1)
       throw new Error('Creditcoin proof transaction reverted.');
-    return transaction.hash as string;
+    for (const log of receipt.logs) {
+      if (
+        getAddress(log.address) !== getAddress(this.config.proofKeyAscAddress)
+      )
+        continue;
+      const event = activationInterface.parseLog(log);
+      if (event?.name === 'ProofKeyAccessActivated')
+        return {
+          transactionHash: transaction.hash as string,
+          queryId: event.args.queryId as string,
+        };
+    }
+    throw new Error('Creditcoin execution omitted ProofKeyAccessActivated.');
   }
 
   private parseUsagePayment(receipt: TransactionReceipt): UsagePayment {

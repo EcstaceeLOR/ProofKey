@@ -33,6 +33,11 @@ export interface AttestcoinProof {
   continuityRoots: string[];
 }
 
+export interface CreditcoinExecution {
+  transactionHash: string;
+  queryId: string;
+}
+
 export interface RelayJob {
   sourceTransactionHash: string;
   phase: RelayPhase;
@@ -40,14 +45,40 @@ export interface RelayJob {
   updatedAt: string;
   attempts: Partial<Record<RelayPhase, number>>;
   sourceBlockNumber?: number;
+  sourcePayment?: UsagePayment;
+  proof?: AttestcoinProof;
   orderId?: string;
   machineId?: string;
   payer?: string;
   accessExpiresAt?: string;
   creditcoinTransactionHash?: string;
+  queryId?: string;
   failedAtPhase?: RelayPhase;
   error?: string;
   failure?: RelayFailure;
+}
+
+export interface PublicProofEvidence {
+  schema: 'proofkey.public-proof.v1';
+  source: {
+    transactionHash: string;
+    blockNumber?: number;
+    payment?: UsagePayment;
+  };
+  relay: {
+    phase: RelayPhase;
+    createdAt: string;
+    updatedAt: string;
+    attempts: Partial<Record<RelayPhase, number>>;
+    failedAtPhase?: RelayPhase;
+    failure?: RelayFailure;
+  };
+  attestcoin?: AttestcoinProof;
+  creditcoin: {
+    transactionHash?: string;
+    queryId?: string;
+    accessExpiresAt?: string;
+  };
 }
 
 export interface RelayFailure {
@@ -72,6 +103,7 @@ export interface JobStore {
 
 export interface DurableJobStore extends JobStore {
   create(job: RelayJob): Promise<{ job: RelayJob; created: boolean }>;
+  find(identifier: string): Promise<RelayJob | undefined>;
   claimNext(
     ownerId: string,
     leaseDurationMs: number,
@@ -111,7 +143,7 @@ export interface RelayAdapter {
   waitUntilAttested(blockNumber: number): Promise<void>;
   generateProof(transactionHash: string): Promise<AttestcoinProof>;
   isOrderProcessed(orderId: string): Promise<boolean>;
-  submitProof(proof: AttestcoinProof): Promise<string>;
+  submitProof(proof: AttestcoinProof): Promise<CreditcoinExecution>;
 }
 
 export interface StatusReporter {

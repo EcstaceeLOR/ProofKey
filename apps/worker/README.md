@@ -10,6 +10,12 @@ The relay exposes a small HTTPS ingestion/status API and runs proof execution in
 | `GET /ready`                 | Separate database, Sepolia RPC, Creditcoin RPC, and relayer-balance checks. |
 | `POST /jobs`                 | Idempotently enqueue `{ "transactionHash": "0x…" }`.                        |
 | `GET /jobs/:transactionHash` | Read the public proof phase, result, or structured failure.                 |
+| `GET /proofs/:identifier`    | Search by source transaction, order, query, or CC3 transaction.             |
+
+Proof responses contain only public receipt, Attestcoin, relay-phase, and
+Creditcoin execution fields. Every response passes a recursive secret-field
+guard before serialization; RPC URLs, private keys, and internal paths are
+never part of the public schema.
 
 Only browser origins listed in `FRONTEND_ORIGINS` receive CORS access. Enqueue requests are bounded per client by `RELAY_RATE_LIMIT_REQUESTS` and `RELAY_RATE_LIMIT_WINDOW_MS`.
 
