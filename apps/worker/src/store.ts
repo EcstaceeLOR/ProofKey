@@ -24,7 +24,7 @@ export class PostgresJobStore implements DurableJobStore {
       throw new Error('Relay database table name is invalid.');
     this.schema = `"${schemaName}"`;
     this.table = `${this.schema}."${tableName}"`;
-    this.claimableIndex = `${this.schema}."${tableName}_claimable_idx"`;
+    this.claimableIndex = `"${tableName}_claimable_idx"`;
     const config: PoolConfig = {
       connectionString: databaseUrl,
       max: 5,
