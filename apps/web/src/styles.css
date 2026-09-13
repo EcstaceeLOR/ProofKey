@@ -1638,10 +1638,9 @@ input:focus-visible {
 }
 .rental-row {
   display: grid;
-  grid-template-columns: auto minmax(160px, 0.8fr) minmax(
-      230px,
-      1.25fr
-    ) auto auto;
+  grid-template-columns:
+    auto minmax(160px, 0.8fr) minmax(230px, 1.25fr)
+    auto auto;
   align-items: center;
   gap: 18px;
   padding: 20px;
