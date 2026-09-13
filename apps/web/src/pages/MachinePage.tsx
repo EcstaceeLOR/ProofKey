@@ -153,8 +153,8 @@ export function Component() {
                 Rental unavailable
               </span>
             )}
-            <Link className="text-link" to={`/device/${machine.machineId}`}>
-              Open device terminal <ExternalLink size={14} />
+            <Link className="text-link" to="/activity">
+              Device handoff from My Rentals <ExternalLink size={14} />
             </Link>
           </div>
         </div>

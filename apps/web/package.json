@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "dev": "vite --host 0.0.0.0",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/flow.test.js dist-test/product.test.js dist-test/wallet/state.test.js dist-test/worker.test.js dist-test/marketplace.test.js dist-test/rental.test.js dist-test/activity.test.js dist-test/proof.test.js dist-test/operator.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/flow.test.js dist-test/product.test.js dist-test/wallet/state.test.js dist-test/worker.test.js dist-test/marketplace.test.js dist-test/rental.test.js dist-test/activity.test.js dist-test/proof.test.js dist-test/operator.test.js dist-test/device-session.test.js",
     "test:e2e": "playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -17,6 +17,7 @@
     "@tanstack/react-query": "^5.102.8",
     "ethers": "6.17.0",
     "lucide-react": "^1.45.0",
+    "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.3.1",

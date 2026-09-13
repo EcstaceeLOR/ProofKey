@@ -9,7 +9,7 @@
     "live:verify": "npm run build && node dist/verify-live.js",
     "relay": "npm run build && node dist/cli.js",
     "serve": "npm run build && node dist/server.js",
-    "test": "npm run build && node --test dist/evidence.test.js dist/executor.test.js dist/http.test.js dist/queue.test.js dist/relay.test.js dist/store.test.js",
+    "test": "npm run build && node --test dist/evidence.test.js dist/executor.test.js dist/http.test.js dist/queue.test.js dist/relay.test.js dist/store.test.js dist/usage-receipt.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

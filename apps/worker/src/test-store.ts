@@ -1,6 +1,8 @@
 import type {
+  DeviceHandoff,
   DurableJobStore,
   RelayJob,
+  SignedUsageReceipt,
   StoredMachineMetadata,
 } from './types.js';
 
@@ -8,6 +10,10 @@ export class MemoryDurableStore implements DurableJobStore {
   readonly jobs = new Map<string, RelayJob>();
   private readonly leases = new Map<string, string>();
   readonly metadata = new Map<string, StoredMachineMetadata>();
+  readonly handoffs = new Map<
+    string,
+    { handoff: DeviceHandoff; claimTokenHash?: string }
+  >();
 
   async get(transactionHash: string): Promise<RelayJob | undefined> {
     const job = this.jobs.get(transactionHash.toLowerCase());
@@ -59,6 +65,47 @@ export class MemoryDurableStore implements DurableJobStore {
       if (metadata.commitment.toLowerCase() === commitment.toLowerCase())
         return structuredClone(metadata);
     return undefined;
+  }
+
+  async createDeviceHandoff(handoff: DeviceHandoff): Promise<void> {
+    if (this.handoffs.has(handoff.nonce))
+      throw new Error('Device handoff nonce already exists.');
+    this.handoffs.set(handoff.nonce, { handoff: structuredClone(handoff) });
+  }
+
+  async getDeviceHandoff(nonce: string): Promise<DeviceHandoff | undefined> {
+    const record = this.handoffs.get(nonce.toLowerCase());
+    return record && structuredClone(record.handoff);
+  }
+
+  async claimDeviceHandoff(
+    nonce: string,
+    claimTokenHash: string,
+    claimedAt: string,
+  ): Promise<DeviceHandoff | undefined> {
+    const record = this.handoffs.get(nonce.toLowerCase());
+    if (!record || record.claimTokenHash) return undefined;
+    record.claimTokenHash = claimTokenHash;
+    record.handoff.claimedAt = claimedAt;
+    return structuredClone(record.handoff);
+  }
+
+  async putDeviceReceipt(
+    nonce: string,
+    claimTokenHash: string,
+    receipt: SignedUsageReceipt,
+  ): Promise<DeviceHandoff | undefined> {
+    const record = this.handoffs.get(nonce.toLowerCase());
+    if (!record || record.claimTokenHash !== claimTokenHash) return undefined;
+    if (receipt.payload.kind === 'start') {
+      if (record.handoff.startReceipt) return undefined;
+      record.handoff.startReceipt = structuredClone(receipt);
+    } else {
+      if (!record.handoff.startReceipt || record.handoff.endReceipt)
+        return undefined;
+      record.handoff.endReceipt = structuredClone(receipt);
+    }
+    return structuredClone(record.handoff);
   }
 
   async save(job: RelayJob): Promise<void> {

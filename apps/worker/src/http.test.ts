@@ -3,15 +3,23 @@ import { once } from 'node:events';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
+import { Wallet, keccak256, toUtf8Bytes } from 'ethers';
 import { createRelayHttpServer, type RelayHttpOptions } from './http.js';
 import type { JobQueue } from './queue.js';
 import type {
+  DeviceHandoff,
   RelayJob,
   RelayReadiness,
+  SignedUsageReceipt,
   StoredMachineMetadata,
 } from './types.js';
+import { usageReceiptMessage } from './usage-receipt.js';
 
 const hash = `0x${'ab'.repeat(32)}`;
+const paymentHash = `0x${'bc'.repeat(32)}`;
+const orderId = `0x${'cd'.repeat(32)}`;
+const machineId = `0x${'de'.repeat(32)}`;
+const payer = '0x1111111111111111111111111111111111111111';
 const origin = 'https://proofkey.vercel.app';
 const job: RelayJob = {
   sourceTransactionHash: hash,
@@ -37,6 +45,10 @@ const ready: RelayReadiness = {
 };
 
 let storedMetadata: StoredMachineMetadata | undefined;
+const handoffs = new Map<
+  string,
+  { handoff: DeviceHandoff; claimTokenHash?: string }
+>();
 const queue: JobQueue = {
   enqueue: async (transactionHash) => ({
     ...job,
@@ -47,9 +59,19 @@ const queue: JobQueue = {
       ? { ...job, phase: 'proof_generation' }
       : undefined,
   find: async (identifier) =>
-    identifier.toLowerCase() === hash
-      ? { ...job, phase: 'proof_generation' }
-      : undefined,
+    identifier.toLowerCase() === paymentHash
+      ? {
+          ...job,
+          sourceTransactionHash: paymentHash,
+          phase: 'completed',
+          orderId,
+          machineId,
+          payer,
+          accessExpiresAt: '2000000000',
+        }
+      : identifier.toLowerCase() === hash
+        ? { ...job, phase: 'proof_generation' }
+        : undefined,
   putMetadata: async (metadata) => {
     storedMetadata = metadata;
   },
@@ -61,6 +83,31 @@ const queue: JobQueue = {
     storedMetadata?.commitment.toLowerCase() === commitment.toLowerCase()
       ? storedMetadata
       : undefined,
+  createDeviceHandoff: async (handoff) => {
+    handoffs.set(handoff.nonce, { handoff });
+  },
+  getDeviceHandoff: async (nonce) => handoffs.get(nonce)?.handoff,
+  claimDeviceHandoff: async (nonce, claimTokenHash, claimedAt) => {
+    const record = handoffs.get(nonce);
+    if (!record || record.claimTokenHash) return undefined;
+    record.claimTokenHash = claimTokenHash;
+    record.handoff = { ...record.handoff, claimedAt };
+    return record.handoff;
+  },
+  putDeviceReceipt: async (nonce, claimTokenHash, receipt) => {
+    const record = handoffs.get(nonce);
+    if (!record || record.claimTokenHash !== claimTokenHash) return undefined;
+    if (receipt.payload.kind === 'start' && !record.handoff.startReceipt)
+      record.handoff = { ...record.handoff, startReceipt: receipt };
+    else if (
+      receipt.payload.kind === 'end' &&
+      record.handoff.startReceipt &&
+      !record.handoff.endReceipt
+    )
+      record.handoff = { ...record.handoff, endReceipt: receipt };
+    else return undefined;
+    return record.handoff;
+  },
 };
 
 async function start(
@@ -212,4 +259,99 @@ test('rejects secret-bearing metadata before durable storage', async (context) =
     'INVALID_METADATA',
   );
   assert.equal(storedMetadata, undefined);
+});
+
+test('creates a short-lived one-time device handoff and stores a signed start receipt', async (context) => {
+  handoffs.clear();
+  const now = Date.parse('2026-09-13T12:00:00.000Z');
+  const { url } = await start(context, { now: () => now });
+  const createdResponse = await fetch(`${url}/device-handoffs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify({ sourceTransactionHash: paymentHash }),
+  });
+  assert.equal(createdResponse.status, 201);
+  const handoff = (await createdResponse.json()) as DeviceHandoff;
+  assert.match(handoff.nonce, /^[0-9a-f]{64}$/);
+  assert.equal(handoff.machineId, machineId);
+  assert.equal(Date.parse(handoff.expiresAt) - now, 120_000);
+
+  const claimResponse = await fetch(
+    `${url}/device-handoffs/${handoff.nonce}/claim`,
+    { method: 'POST' },
+  );
+  assert.equal(claimResponse.status, 200);
+  const claim = (await claimResponse.json()) as {
+    handoff: DeviceHandoff;
+    claimToken: string;
+  };
+  assert.match(claim.claimToken, /^[0-9a-f]{64}$/);
+  assert.equal(
+    (
+      await fetch(`${url}/device-handoffs/${handoff.nonce}/claim`, {
+        method: 'POST',
+      })
+    ).status,
+    409,
+  );
+
+  const controller = Wallet.createRandom();
+  const payload = {
+    schema: 'proofkey.usage-receipt.v1' as const,
+    kind: 'start' as const,
+    sessionId: keccak256(
+      toUtf8Bytes(`proofkey-device-session:${handoff.nonce}`),
+    ),
+    machineId,
+    payer,
+    orderId,
+    nonce: handoff.nonce,
+    controller: controller.address,
+    startedAt: '2026-09-13T12:00:10.000Z',
+    endedAt: null,
+    measuredDurationSeconds: 0,
+    accessExpiresAt: handoff.accessExpiresAt,
+  };
+  const receipt: SignedUsageReceipt = {
+    payload,
+    signature: await controller.signMessage(usageReceiptMessage(payload)),
+  };
+  const stored = await fetch(
+    `${url}/device-handoffs/${handoff.nonce}/receipts`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-ProofKey-Claim-Token': claim.claimToken,
+      },
+      body: JSON.stringify(receipt),
+    },
+  );
+  assert.equal(stored.status, 201);
+  assert.equal(
+    ((await stored.json()) as DeviceHandoff).startReceipt?.payload.controller,
+    controller.address,
+  );
+});
+
+test('rejects an expired QR claim', async (context) => {
+  handoffs.clear();
+  let now = Date.parse('2026-09-13T12:00:00.000Z');
+  const { url } = await start(context, { now: () => now });
+  const created = (await (
+    await fetch(`${url}/device-handoffs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceTransactionHash: paymentHash }),
+    })
+  ).json()) as DeviceHandoff;
+  now += 120_001;
+  const expired = await fetch(`${url}/device-handoffs/${created.nonce}/claim`, {
+    method: 'POST',
+  });
+  assert.equal(expired.status, 410);
+  assert.equal(
+    ((await expired.json()) as { error: { code: string } }).error.code,
+    'HANDOFF_EXPIRED',
+  );
 });

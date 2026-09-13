@@ -89,6 +89,43 @@ export interface StoredMachineMetadata {
   createdAt: string;
 }
 
+export type UsageReceiptKind = 'start' | 'end';
+
+export interface UsageReceiptPayload {
+  schema: 'proofkey.usage-receipt.v1';
+  kind: UsageReceiptKind;
+  sessionId: string;
+  machineId: string;
+  payer: string;
+  orderId: string;
+  nonce: string;
+  controller: string;
+  startedAt: string;
+  endedAt: string | null;
+  measuredDurationSeconds: number;
+  accessExpiresAt: string;
+}
+
+export interface SignedUsageReceipt {
+  payload: UsageReceiptPayload;
+  signature: string;
+}
+
+export interface DeviceHandoff {
+  schema: 'proofkey.device-handoff.v1';
+  nonce: string;
+  machineId: string;
+  payer: string;
+  orderId: string;
+  sourceTransactionHash: string;
+  accessExpiresAt: string;
+  createdAt: string;
+  expiresAt: string;
+  claimedAt?: string;
+  startReceipt?: SignedUsageReceipt;
+  endReceipt?: SignedUsageReceipt;
+}
+
 export interface RelayFailure {
   code: string;
   message: string;
@@ -119,6 +156,18 @@ export interface DurableJobStore extends JobStore {
   getMetadataByCommitment(
     commitment: string,
   ): Promise<StoredMachineMetadata | undefined>;
+  createDeviceHandoff(handoff: DeviceHandoff): Promise<void>;
+  getDeviceHandoff(nonce: string): Promise<DeviceHandoff | undefined>;
+  claimDeviceHandoff(
+    nonce: string,
+    claimTokenHash: string,
+    claimedAt: string,
+  ): Promise<DeviceHandoff | undefined>;
+  putDeviceReceipt(
+    nonce: string,
+    claimTokenHash: string,
+    receipt: SignedUsageReceipt,
+  ): Promise<DeviceHandoff | undefined>;
   claimNext(
     ownerId: string,
     leaseDurationMs: number,

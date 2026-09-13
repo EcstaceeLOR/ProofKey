@@ -1,6 +1,6 @@
 # ProofKey machine simulator
 
-This standalone browser view visualizes one physical machine and reads its authorization directly from `AccessPass` and `MachineRegistry` on Creditcoin CC3 testnet. It does not accept an unlock command from the worker or a private backend.
+This standalone browser view is retained as a low-level authorization diagnostic. The production product integrates the machine experience at the public `/device/:machineId?handoff=:nonce` route in `@proofkey/web`, including one-time QR claims, continuous Creditcoin checks, and controller-signed usage receipts. Neither client accepts an unlock command from the relay.
 
 Copy `.env.example` to the repository root, supply the five `VITE_*` values, then run:
 

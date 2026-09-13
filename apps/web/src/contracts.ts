@@ -42,7 +42,6 @@ export interface AppConfig {
   workerUrl: string;
   sepoliaExplorerUrl: string;
   creditcoinExplorerUrl: string;
-  deviceUrl: string;
   machineName: string;
   machineLocation: string;
   creditcoinRegistryDeploymentBlock: number;
@@ -119,7 +118,6 @@ export function loadAppConfig(environment: ImportMetaEnv): AppConfig {
       environment.VITE_CREDITCOIN_EXPLORER_URL ??
       'https://creditcoin-testnet.blockscout.com'
     ).replace(/\/$/, ''),
-    deviceUrl: environment.VITE_DEVICE_SIMULATOR_URL ?? 'http://localhost:4174',
     machineName: environment.VITE_DEMO_MACHINE_NAME ?? 'Industrial Excavator',
     machineLocation:
       environment.VITE_DEMO_MACHINE_LOCATION ?? 'Lagos Demo Yard · Bay 04',

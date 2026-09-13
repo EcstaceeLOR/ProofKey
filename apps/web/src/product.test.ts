@@ -17,6 +17,7 @@ test('Product V1 exposes every required route', () => {
     '/machines/:machineId',
     '/rent/:machineId',
     '/activity',
+    '/sessions/:sourceTransactionHash',
     '/proofs/:sourceTxHash',
     '/operator',
     '/device/:machineId',

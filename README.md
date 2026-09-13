@@ -26,6 +26,9 @@ ProofKey makes the source-chain receipt the authority:
 6. Creditcoin's Native Query Verifier at `0x0FD2` verifies the proof.
 7. `ProofKeyASC` decodes the proven receipt, validates every payment invariant, rejects replay, and atomically issues an expiring `AccessPass`.
 8. The machine reads `AccessPass.isAuthorized` directly from Creditcoin and fails closed on expiry, deactivation, or RPC failure.
+9. The customer creates a two-minute, one-use QR handoff bound to the machine, payer, order, and a random nonce; it never contains a private key.
+10. The public `/device/:machineId` terminal claims that nonce once, continuously rechecks Creditcoin, and enables output only after the registered controller signs a start receipt.
+11. A controller-signed end receipt seals the measured duration. My Rentals verifies both signatures locally against the live controller address.
 
 The worker pays gas and provides liveness. It cannot forge a payment, choose a beneficiary, alter a tariff, extend access, or bypass Attestcoin verification.
 
@@ -152,11 +155,11 @@ npm run serve --workspace @proofkey/worker
 # Customer payment and proof journey
 npm run dev --workspace @proofkey/web
 
-# Fail-closed machine simulator
+# Optional standalone fail-closed diagnostic client
 npm run dev --workspace @proofkey/device
 ```
 
-The customer UI connects a wallet, switches to Sepolia, calculates exact token units without floating-point arithmetic, approves the payment token, settles usage, queues the Attestcoin relay, displays every proof phase, and reveals access only after Creditcoin execution succeeds.
+The customer UI connects a wallet, switches to Sepolia, calculates exact token units without floating-point arithmetic, approves the payment token, settles usage, queues the Attestcoin relay, displays every proof phase, and reveals access only after Creditcoin execution succeeds. The same Vercel deployment serves the customer session page and independent `/device/:machineId` terminal, so QR links never point at localhost.
 
 ## Verify the recorded result
 
@@ -186,14 +189,14 @@ npm run check
 
 The gate runs formatting, TypeScript checks, all automated tests, Solidity compilation, and production builds.
 
-| Suite            |  Tests | Coverage focus                                                                                     |
-| ---------------- | -----: | -------------------------------------------------------------------------------------------------- |
-| Solidity         |     52 | Receipt semantics, proof tampering, replay, authorization, pricing, ownership, expiry, reentrancy  |
-| Relay worker     |     16 | Leases, restart recovery, retries, idempotency, CORS, rate limits, readiness, secret-safe evidence |
-| Customer web     |     19 | Proof state, route helpers, relay URL safety, exact token math, wallet lifecycle and errors        |
-| Wallet browser   |      1 | EIP-6963 production connect button and prompt-free persisted reconnect                             |
-| Device simulator |      6 | Locked/unlocking/unlocked/expired states, tampered results, RPC failure                            |
-| **Total**        | **94** |                                                                                                    |
+| Suite            |   Tests | Coverage focus                                                                                         |
+| ---------------- | ------: | ------------------------------------------------------------------------------------------------------ |
+| Solidity         |      52 | Receipt semantics, proof tampering, replay, authorization, pricing, ownership, expiry, reentrancy      |
+| Relay worker     |      23 | Leases, restart recovery, one-time handoffs, receipt signatures, CORS, readiness, secret-safe evidence |
+| Customer web     |      48 | Proof state, exact token math, operator workflow, session state machine, receipt tampering and expiry  |
+| Product browser  |       7 | Multi-page rental, operator, proof, two-browser QR handoff, signed usage, and replay rejection         |
+| Device simulator |       6 | Locked/unlocking/unlocked/expired states, tampered results, RPC failure                                |
+| **Total**        | **136** |                                                                                                        |
 
 The Solidity suite uses explicit verifier doubles at `0x0FD2` to isolate adversarial proof cases. Those tests are distinct from the committed live CC3 transaction, which executed against Creditcoin's real Native Query Verifier.
 

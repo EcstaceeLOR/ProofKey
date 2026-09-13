@@ -15,6 +15,8 @@ For mobile connections, create a project in [Reown Cloud](https://cloud.reown.co
 
 The user chooses an EIP-6963 browser wallet, Coinbase Wallet, or WalletConnect mobile wallet; switches to Sepolia when prompted; chooses a duration; approves the payment token if necessary; and confirms `payForUsage`. The approved session reconnects silently after refresh and never requests a signature until the user starts a transaction. The app automatically submits the confirmed transaction hash to the worker and follows every proof phase through Creditcoin execution. It never exposes the worker wallet key to the browser.
 
+After access activates, `/sessions/:sourceTransactionHash` creates a one-time QR for the public `/device/:machineId` route. The device claims it once, reads `AccessPass` and `MachineRegistry` directly from CC3 every four seconds, and fails closed on any mismatch or RPC failure. The registered controller signs the start and end receipts; the customer session and My Rentals screens recover them from the relay and verify the signatures locally.
+
 Run wallet state and browser-fixture tests with:
 
 ```bash
@@ -22,4 +24,4 @@ npm test --workspace @proofkey/web
 npm run test:e2e --workspace @proofkey/web
 ```
 
-For a side-by-side recording, also run `npm run dev --workspace @proofkey/device`.
+For a side-by-side flow, open the generated device link in a second browser or private window. The separate `@proofkey/device` application remains available only as a low-level authorization diagnostic.
