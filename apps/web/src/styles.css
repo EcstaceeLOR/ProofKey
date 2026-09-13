@@ -1705,9 +1705,16 @@ input:focus-visible {
   background: #f4f7f2;
   color: #69746d;
 }
-.rental-signed-proof svg { grid-row: span 2; }
-.rental-signed-proof span { font-size: 8px; font-weight: 800; }
-.rental-signed-proof small { font-size: 7px; }
+.rental-signed-proof svg {
+  grid-row: span 2;
+}
+.rental-signed-proof span {
+  font-size: 8px;
+  font-weight: 800;
+}
+.rental-signed-proof small {
+  font-size: 7px;
+}
 .rental-signed-proof.verified {
   color: #177245;
   border-color: #bfe3cd;
