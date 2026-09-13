@@ -29,6 +29,7 @@ import {
   type MachineOffer,
 } from '../contracts.js';
 import { describeError } from '../product.js';
+import { MarketplaceClient, type MarketplaceSnapshot } from '../marketplace.js';
 import { appKit, hasWalletConnect, wagmiConfig } from '../wallet/config.js';
 import {
   deriveWalletView,
@@ -40,6 +41,7 @@ import {
 interface RuntimeContextValue {
   config?: AppConfig;
   paymentClient?: PaymentClient;
+  marketplaceClient?: MarketplaceClient;
   walletProvider?: Eip1193Provider;
   configurationError?: string;
   account?: string;
@@ -84,7 +86,11 @@ function RuntimeProvider({ children }: { children: ReactNode }) {
   const runtime = useMemo(() => {
     try {
       const config = loadAppConfig(import.meta.env);
-      return { config, paymentClient: new PaymentClient(config) };
+      return {
+        config,
+        paymentClient: new PaymentClient(config),
+        marketplaceClient: new MarketplaceClient(config),
+      };
     } catch (error) {
       return { configurationError: describeError(error) };
     }
@@ -215,5 +221,23 @@ export function useMachineOffer() {
     },
     enabled: Boolean(paymentClient),
     staleTime: 15_000,
+  });
+}
+
+export function useMarketplace() {
+  const { config, marketplaceClient } = useRuntime();
+  return useQuery<MarketplaceSnapshot>({
+    queryKey: [
+      'marketplace',
+      config?.machineRegistryAddress,
+      config?.registryAddress,
+    ],
+    queryFn: async () => {
+      if (!marketplaceClient)
+        throw new Error('ProofKey runtime is not configured.');
+      return marketplaceClient.load();
+    },
+    enabled: Boolean(marketplaceClient),
+    staleTime: 30_000,
   });
 }

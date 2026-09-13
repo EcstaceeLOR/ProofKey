@@ -9,6 +9,7 @@ import {
 import { formatUnits } from 'ethers';
 import { Link } from 'react-router';
 import type { MachineOffer } from '../contracts.js';
+import type { MarketplaceMachine } from '../marketplace.js';
 import { compactHash, machinePath, rentPath } from '../product.js';
 
 export function PageHeading({
@@ -81,30 +82,57 @@ export function MachineArtwork({ compact = false }: { compact?: boolean }) {
 }
 
 export function MachineCard({
+  machine,
   machineId,
-  name,
-  location,
-  offer,
+  name: suppliedName,
+  location: suppliedLocation,
+  offer: suppliedOffer,
   loading,
 }: {
-  machineId: string;
-  name: string;
-  location: string;
+  machine?: MarketplaceMachine;
+  machineId?: string;
+  name?: string;
+  location?: string;
   offer?: MachineOffer;
   loading?: boolean;
 }) {
+  const available = machine
+    ? machine.status === 'available'
+    : Boolean(suppliedOffer?.active);
+  const name = machine?.metadata?.name ?? suppliedName ?? 'Unverified machine';
+  const location = machine?.metadata
+    ? `${machine.metadata.location.city}, ${machine.metadata.location.country} · ${machine.metadata.location.site}`
+    : (suppliedLocation ?? 'Metadata unavailable');
+  const offer: MachineOffer | undefined = machine?.offer
+    ? {
+        beneficiary: machine.offer.beneficiary,
+        pricePerSecond: machine.offer.pricePerSecond,
+        active: available,
+        tokenAddress: machine.tokenAddress,
+        tokenDecimals: machine.tokenDecimals,
+        tokenSymbol: machine.tokenSymbol,
+      }
+    : suppliedOffer;
+  const statusLabel = loading
+    ? 'Checking chain'
+    : machine
+      ? {
+          available: 'Available now',
+          inactive: 'Inactive',
+          unsynchronized: 'Cross-chain mismatch',
+          'metadata-invalid': 'Metadata rejected',
+        }[machine.status]
+      : available
+        ? 'Available now'
+        : 'Unavailable';
+  const resolvedId = machine?.machineId ?? machineId ?? '';
   return (
-    <article className="catalog-card">
+    <article className={`catalog-card ${machine?.status ?? ''}`}>
       <MachineArtwork compact />
       <div className="catalog-card-body">
         <div className="card-topline">
-          <span className={offer?.active ? 'status available' : 'status'}>
-            <span />{' '}
-            {loading
-              ? 'Checking chain'
-              : offer?.active
-                ? 'Available now'
-                : 'Unavailable'}
+          <span className={available ? 'status available' : 'status'}>
+            <span /> {statusLabel}
           </span>
           <span className="chain-tag">CC3 VERIFIED</span>
         </div>
@@ -123,12 +151,18 @@ export function MachineCard({
           </div>
         </div>
         <div className="card-actions">
-          <Link className="button secondary" to={machinePath(machineId)}>
+          <Link className="button secondary" to={machinePath(resolvedId)}>
             View machine
           </Link>
-          <Link className="button primary" to={rentPath(machineId)}>
-            Rent now <ArrowRight size={16} />
-          </Link>
+          {available ? (
+            <Link className="button primary" to={rentPath(resolvedId)}>
+              Rent now <ArrowRight size={16} />
+            </Link>
+          ) : (
+            <span className="button primary disabled" aria-disabled="true">
+              Unavailable
+            </span>
+          )}
         </div>
       </div>
     </article>
